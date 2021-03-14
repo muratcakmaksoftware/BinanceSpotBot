@@ -9,7 +9,12 @@ use \Binance;
 class HomeController extends Controller
 {
     public function index(){
-        $api = new Binance\API( base_path('public/binance/config.json'), true);
+        $api = new Binance\API( base_path('public/binance/config.json')); //orjinal
+
+        //TEST kısmını güncelleyecekler
+        //$api = new Binance\API("NE2zfaJ3DeUi3E8slgkRp8tuzBjsQIqGXOJKPUtSSNkn3YhzQ2WIazskyb20m8nI", "fMhRLVEPFYe510tl4eAeQqUjSLW4igAwyLqKgiLA8bCkdpCgnmMbM0oAXe9MT8T4", true);
+        //$buyStatus = $api->buyTest("BNBBTC", 1, 1.20);
+        //return $buyStatus;
 
         //$ticker = $api->prices();// tüm para birimlerini alma
         //return print_r($ticker);
@@ -87,9 +92,7 @@ class HomeController extends Controller
           *Piyasa Alıcı (Taker) işlem yapan kullanıcı satış ve alış için coin fiyatını kendisi belirlemez, mevcut anlık fiyattan alım veya satım yapar. İşlemi hemen gerçekleşir. Kolay Alış-Satış bölümündeki tüm işlemler Piyasa Alıcı (Taker) işlemidir.
         */
 
-        $buyStatus = $api->buyTest("BNBBTC", 1, 1.20);
 
-        return $buyStatus;
 
         $coin = Coin::where("id", 1)->first();
         if(isset($coin)){
@@ -175,11 +178,21 @@ class HomeController extends Controller
                                 }
                             }
 
+
+                            return "test koruması";
                             $buyPiece = floor($walletDolar / $buyPrice); //alınacak adet.
                             //Satın alma limit eklenmesi.
                             $buyStatus = $api->buy($coin_usd, $buyPiece, $buyPrice);
                             if(isset($buyStatus)){
-                            } //BAŞARISIZ OLURSA
+                            } //BAŞARISIZ OLURSA Genel try catch atılacak
+
+                            // Devam edilecek
+                            /*
+                             * Buy işlemi doğru olursa yapılan işlem bilgileri veritabanına atılacak.
+                             * Daha sonra satım emri belirlenecek ve satım emrinin bilgileride veritabanına atılacak.
+                             * Veritabanında alım satım emirlerinin gerçekleştirlip gerçekleşmediğini API ile kontrol edilip veritabanında kontrol edildiğinde / true yapılıp tekrar kontrol engellenecek.
+                             * Alım satım bilgileriyle kazanç bilgisi sitede yansıtılacak.
+                             * */
 
                         }else{
                             $log = new Log;
