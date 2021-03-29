@@ -4,16 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Coin;
 use App\Models\Log;
+use App\Models\Order;
 use \Binance;
 
 class HomeController extends Controller
 {
     public function index(){
         $api = new Binance\API( base_path('public/binance/config.json')); //orjinal
-
         //TEST kısmını güncelleyecekler
         //$api = new Binance\API("NE2zfaJ3DeUi3E8slgkRp8tuzBjsQIqGXOJKPUtSSNkn3YhzQ2WIazskyb20m8nI", "fMhRLVEPFYe510tl4eAeQqUjSLW4igAwyLqKgiLA8bCkdpCgnmMbM0oAXe9MT8T4", true);
-        //$buyStatus = $api->buyTest("BNBBTC", 1, 1.20);
+        //$buyStatus = $api->buyTest("XRPUSDT", 10, 1.59);
         //return $buyStatus;
 
         //$ticker = $api->prices();// tüm para birimlerini alma
@@ -63,7 +63,7 @@ class HomeController extends Controller
         //$openorders["side"]; // Limitin SELL VEYA BUY parametresi döner alım mı satım mı limitinin bilgisidir.
 
         //$openorders["orderId"]; Limit ID bilgisi
-        //$orderstatus = $api->orderStatus("ADAUSDT", $openorders["orderId"]); // limit hakkında bilgi alma
+        //$orderstatus = $api->orderStatus("ADAUSDT", $openorders["orderId"]); // bilgi alma : {"symbol":"ADAUSDT","orderId":1197572803,"orderListId":-1,"clientOrderId":"and_d020b57a54254ab6a427c90bd5023cd3","price":"1.05000000","origQty":"87.70000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0.00000000","icebergQty":"0.00000000","time":1616962113169,"updateTime":1616962113169,"isWorking":true,"origQuoteOrderQty":"0.00000000"}
 
         //Limit iptal etme.
         //$cancelOrder = $api->cancel("ADAUSDT", $openorders["orderId"]); //limiti iptal etme. // Array ( [symbol] => ADAUSDT [origClientOrderId] => and_7ef0d8f35bd3440ca487d811e99515b1 [orderId] => 1061155402 [orderListId] => -1 [clientOrderId] => V4ZYosXSyxWqthHqds7NiL [price] => 1.23000000 [origQty] => 100.00000000 [executedQty] => 0.00000000 [cummulativeQuoteQty] => 0.00000000 [status] => CANCELED [timeInForce] => GTC [type] => LIMIT [side] => SELL )
@@ -104,116 +104,100 @@ class HomeController extends Controller
 
             while(true){
 
-                /*$openorders = $api->openOrders($coin_usd); // Array ( [0] => Array ( [symbol] => ADAUSDT [orderId] => 1061155402 [orderListId] => -1 [clientOrderId] => and_7ef0d8f35bd3440ca487d811e99515b1 [price] => 1.23000000 [origQty] => 100.00000000 [executedQty] => 0.00000000 [cummulativeQuoteQty] => 0.00000000 [status] => NEW [timeInForce] => GTC [type] => LIMIT [side] => SELL [stopPrice] => 0.00000000 [icebergQty] => 0.00000000 [time] => 1614853539597 [updateTime] => 1614853539597 [isWorking] => 1 [origQuoteOrderQty] => 0.00000000 ) )
-                if(count($openorders) > 0){ //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
-                    // limitin gerçekleşmesi bekleniyor.
-                    sleep(10);
-                }else{*/
-                    $tradeFee = $api->tradeFee($coin_usd); //{"success":true,"tradeFee":[{"maker":0.001,"symbol":"ADAUSDT","taker":0.001}]}
-                    if($tradeFee["success"]){
-
-                        if(isset($tradeFee["tradeFee"][0]["maker"])){
-                            $fee = $tradeFee["tradeFee"][0]["maker"];
-
-                            $ticker = $api->prices();
-                            $balances = $api->balances($ticker)["USDT"]; //Array ( [available] => 0.07340000 [onOrder] => 100.00000000 [btcValue] => 0.00000170 [btcTotal] => 0.00232070 )
-
-                            $walletDolar = $balances["available"]; //Cüzdanımda kalan DOLAR para birimi
-                            if($walletDolar > 5){ // test için 5 dolardan çok bakiye varsa 5 dolar olarak sabitle.
-                                $walletDolar = 5;
-                            }
-
-                            $commissionPercent = $fee; //Komisyon
-                            $commissionReverse = 1 - $commissionPercent;
-
-                            //Miktarın stabiletisini kontrol etme.
-                            $priceStatus = true; //alım limiti belirlenmiş mi ?
-
-                            $price = -1; //şu anda olan coin para birimi
-                            $priceUpLimit = -1; //şu anda olan coin biriminin sirkülasyon maks üst aralığı
-                            $priceDownLimit = -1; //şu anda olan coin biriminin sirkülasyon min alt aralığı
-                            $priceMaxMinStatus = false; // sirkülasyon aralığıbelirlenmiş mi ?
-                            $priceDiff = -1; //coin para briminin aralık farkının alınması
-                            $buyPriceCount = 30; //her 1 saniye de 30 kere aynı para birim aralığındaysa limit emriyle satın alma işlemi gerçekleştirilecek.
-                            $buyPriceCounter = 0;
-
-                            $buyPrice = -1; //
-                            while($priceStatus){
-
-                                try {
-                                    $price = floatval($api->price($coin_usd)); //örnek çıktı: 1.06735000
-
-                                    if($priceMaxMinStatus == false){
-                                        $priceDiff = $price * $coin_purchase;
-                                        $priceUpLimit = $price + $priceDiff;
-                                        $priceDownLimit = $price - $priceDiff;
-                                        $priceMaxMinStatus = true;
-                                    }else{
-                                        if($price > $priceUpLimit){ //max değeri aşılmış
-                                            $priceMaxMinStatus = false; //tekrardan min ve maks değeri belirle
-                                        }else if($priceDownLimit > $price){ //min değeri aşılmış
-                                            $priceMaxMinStatus = false; //tekrardan min ve maks değeri belirle
-                                        }else{ //Belirtilen min maks değerinin içerisinde
-                                            if($buyPriceCounter == $buyPriceCount){ //aralık aynı seyirde devam ettiyse girer.
-                                                $buyPrice = $price;
-                                                $priceStatus = false; //alınacak para birimi belirlendi döngü sonlandırıldı.
-                                            }else{
-                                                $buyPriceCounter++;
-                                            }
-                                        }
-                                    }
-
-                                } catch (\Exception $e) {
-                                    $log = new Log;
-                                    $log->type = 2;
-                                    $log->coin_id = $coin_id;
-                                    $log->title = "Price Error";
-                                    $log->description = "Para Birimi Alınamadı. Detay: ". $e->getMessage();
-                                    $log->save();
-                                    sleep(5); //hata alırsa 5 saniye bekledikten sonra devam ettir kontrolü.
-                                }
-
-                                if($priceStatus){ //para birimi bulunmuş mu = true bulunmamış / false bulunmuş bu yüzden beklemeyi atlayacak.
-                                    sleep(1); // 1 saniye de 1 kere para birimini kontrol et.
-                                }
-                            }
-
-
-                            return "test koruması";
-                            $buyPiece = floor($walletDolar / $buyPrice); //alınacak adet.
-                            //Satın alma limit eklenmesi.
-                            $buyStatus = $api->buy($coin_usd, $buyPiece, $buyPrice);
-                            if(isset($buyStatus)){
-                            } //BAŞARISIZ OLURSA Genel try catch atılacak
-
-                            // Devam edilecek
-                            /*
-                             * Buy işlemi doğru olursa yapılan işlem bilgileri veritabanına atılacak.
-                             * Daha sonra satım emri belirlenecek ve satım emrinin bilgileride veritabanına atılacak.
-                             * Veritabanında alım satım emirlerinin gerçekleştirlip gerçekleşmediğini API ile kontrol edilip veritabanında kontrol edildiğinde / true yapılıp tekrar kontrol engellenecek.
-                             * Alım satım bilgileriyle kazanç bilgisi sitede yansıtılacak.
-                             * */
-
-                        }else{
-                            $log = new Log;
-                            $log->type = 2;
-                            $log->coin_id = $coin_id;
-                            $log->title = "TradeFee Data Error";
-                            $log->description = "Komisyon bedeli bulunamadı!";
-                            $log->save();
+                if(openOrdersByPass($api, $coin_id, $coin_usd)){ //Beklemede olan açık emir yoksa algoritmaya giriş yapabilir!
+                    //Komisyon bilgisinin alınması.
+                    $fee = null;
+                    while(true){
+                        $fee = getCommission($api, $coin_id, $coin_usd);
+                        if($fee != null){  //komisyon bilgisi başarıyla alındı.
+                            break; //döngü sonlandırıldı.
                         }
-
-                    }else{
-                        $log = new Log;
-                        $log->type = 2;
-                        $log->coin_id = $coin_id;
-                        $log->title = "TradeFee 404";
-                        $log->description = "Response Failed!";
-                        $log->save();
+                        sleep(1); //Komisyon bilgisi alınması başarısız oldu. 1 saniye sonra tekrar denenecek.
                     }
-                //}
 
-                break; // TEST İÇİN
+                    //Cüzdan daki dolar bilgisi alınıyor
+                    $walletDolar = null;
+                    while(true){
+                        $walletDolar = getWalletDolar($api, $coin_id);
+                        if($walletDolar != null){
+                            break;
+                        }
+                        sleep(1);  //Cüzdan dolar bilgisi alınması başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    }
+
+                    if($walletDolar > 15){ //test için sabitleme
+                        $walletDolar = 15;
+                    }
+
+                    //Alınacak coinin miktarın stabiletisini kontrol etme.
+                    $buyPrice = null; //Alınacak coinin fiyatı
+                    while(true){
+                        $buyPrice = getPaymentCoinAmount($api, $coin_id, $coin_usd, $coin_purchase);
+                        if($buyPrice != null){
+                            break;
+                        }
+                        sleep(1); //Alınacak coinin miktarı başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    }
+
+                    // ##################################################
+
+                    $commissionPercent = $fee; //Komisyon
+                    $commissionReverse = 1 - $commissionPercent;
+                    $buyPiece = floor($walletDolar / $buyPrice); //alınacak adet.
+
+                    // ##################################################
+
+                    //Satın alma limit eklenmesi.
+                    $buyOrderId = null;
+                    while(true){
+                        $buyOrderId = buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice);
+                        if($buyOrderId != null){
+                            break;
+                        }
+                        sleep(1); //Satın alma limitin eklenmesi başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    }
+
+                    $buyOrder = Order::where("id", $buyOrderId)->first();
+
+                    //Satın alma limiti gerçekleşmiş mi ?
+                    while(true){
+                        if(getOrderStatus($api, $coin_id, $coin_usd, $buyOrder)){
+                            break;
+                        }
+                        sleep(1); //Satın alma limitin kontrolü başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    }
+
+                    // ##################################################
+
+                    //Satış yapılacak kar belirlenmesi
+                    $unitPurchasePrice = $buyPrice / $commissionReverse; // Birim alış fiyatı //Komisyonlu halde satın aldığımız fiyat.
+                    $unitSellPrice = ($unitPurchasePrice + $coin_profit ) * $commissionReverse; // Birim satış fiyatı ( satış yapılacak tutar )
+
+                    // ##################################################
+
+                    //Satış limitin oluşturulması
+                    $sellOrderId = null;
+                    while(true){
+                        $sellOrderId = sellCoin($api, $coin_id, $coin_usd, $buyPiece, $unitSellPrice); //buyPiece Alındığı adet kadar satılacak.
+                        if($sellOrderId != null){
+                            break;
+                        }
+                        sleep(1); //Satış limitin eklenmesi başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    }
+
+                    $sellOrder = Order::where("id", $sellOrderId)->first();
+
+                    //Satın alma limiti gerçekleşmiş mi ?
+                    while(true){
+                        if(getOrderStatus($api, $coin_id, $coin_usd, $sellOrder)){
+                            break;
+                        }
+                        sleep(1); //Satın alma limitin kontrolü başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    }
+
+                    sleep(5); //Diğer alım satıma geçiş için bekletme.
+
+                } //else konumuna gelemez bypass true olana kadar döngü içindedir.
             }
 
         }else{
