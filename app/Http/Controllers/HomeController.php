@@ -11,6 +11,7 @@ class HomeController extends Controller
 {
     public function index(){
         $api = new Binance\API( base_path('public/binance/config.json')); //orjinal
+
         //TEST kısmını güncelleyecekler
         //$api = new Binance\API("NE2zfaJ3DeUi3E8slgkRp8tuzBjsQIqGXOJKPUtSSNkn3YhzQ2WIazskyb20m8nI", "fMhRLVEPFYe510tl4eAeQqUjSLW4igAwyLqKgiLA8bCkdpCgnmMbM0oAXe9MT8T4", true);
         //$buyStatus = $api->buyTest("XRPUSDT", 10, 1.59);
@@ -92,122 +93,6 @@ class HomeController extends Controller
           *Piyasa Alıcı (Taker) işlem yapan kullanıcı satış ve alış için coin fiyatını kendisi belirlemez, mevcut anlık fiyattan alım veya satım yapar. İşlemi hemen gerçekleşir. Kolay Alış-Satış bölümündeki tüm işlemler Piyasa Alıcı (Taker) işlemidir.
         */
 
-
-
-        $coin = Coin::where("id", 1)->first();
-        if(isset($coin)){
-            $coin_id = $coin->id;
-            $coin_name = $coin->name; //ADA
-            $coin_usd = $coin->name_usd; //ADAUSDT
-            $coin_profit = $coin->profit; // Satışta alacağımız kazanç miktarı
-            $coin_purchase = $coin->purchase; // satın alma aralık  coin para birimi artı ve eksi aralığını belirler.
-
-            while(true){
-
-                if(openOrdersByPass($api, $coin_id, $coin_usd)){ //Beklemede olan açık emir yoksa algoritmaya giriş yapabilir!
-                    //Komisyon bilgisinin alınması.
-                    $fee = null;
-                    while(true){
-                        $fee = getCommission($api, $coin_id, $coin_usd);
-                        if($fee != null){  //komisyon bilgisi başarıyla alındı.
-                            break; //döngü sonlandırıldı.
-                        }
-                        sleep(1); //Komisyon bilgisi alınması başarısız oldu. 1 saniye sonra tekrar denenecek.
-                    }
-
-                    //Cüzdan daki dolar bilgisi alınıyor
-                    $walletDolar = null;
-                    while(true){
-                        $walletDolar = getWalletDolar($api, $coin_id);
-                        if($walletDolar != null){
-                            break;
-                        }
-                        sleep(1);  //Cüzdan dolar bilgisi alınması başarısız oldu. 1 saniye sonra tekrar denenecek.
-                    }
-
-                    if($walletDolar > 15){ //test için sabitleme
-                        $walletDolar = 15;
-                    }
-
-                    //Alınacak coinin miktarın stabiletisini kontrol etme.
-                    $buyPrice = null; //Alınacak coinin fiyatı
-                    while(true){
-                        $buyPrice = getPaymentCoinAmount($api, $coin_id, $coin_usd, $coin_purchase);
-                        if($buyPrice != null){
-                            break;
-                        }
-                        sleep(1); //Alınacak coinin miktarı başarısız oldu. 1 saniye sonra tekrar denenecek.
-                    }
-
-                    // ##################################################
-
-                    $commissionPercent = $fee; //Komisyon
-                    $commissionReverse = 1 - $commissionPercent;
-                    $buyPiece = floor($walletDolar / $buyPrice); //alınacak adet.
-
-                    // ##################################################
-
-                    //Satın alma limit eklenmesi.
-                    $buyOrderId = null;
-                    while(true){
-                        $buyOrderId = buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice);
-                        if($buyOrderId != null){
-                            break;
-                        }
-                        sleep(1); //Satın alma limitin eklenmesi başarısız oldu. 1 saniye sonra tekrar denenecek.
-                    }
-
-                    $buyOrder = Order::where("id", $buyOrderId)->first();
-
-                    //Satın alma limiti gerçekleşmiş mi ?
-                    while(true){
-                        if(getOrderStatus($api, $coin_id, $coin_usd, $buyOrder)){
-                            break;
-                        }
-                        sleep(1); //Satın alma limitin kontrolü başarısız oldu. 1 saniye sonra tekrar denenecek.
-                    }
-
-                    // ##################################################
-
-                    //Satış yapılacak kar belirlenmesi
-                    $unitPurchasePrice = $buyPrice / $commissionReverse; // Birim alış fiyatı //Komisyonlu halde satın aldığımız fiyat.
-                    $unitSellPrice = ($unitPurchasePrice + $coin_profit ) * $commissionReverse; // Birim satış fiyatı ( satış yapılacak tutar )
-
-                    // ##################################################
-
-                    //Satış limitin oluşturulması
-                    $sellOrderId = null;
-                    while(true){
-                        $sellOrderId = sellCoin($api, $coin_id, $coin_usd, $buyPiece, $unitSellPrice); //buyPiece Alındığı adet kadar satılacak.
-                        if($sellOrderId != null){
-                            break;
-                        }
-                        sleep(1); //Satış limitin eklenmesi başarısız oldu. 1 saniye sonra tekrar denenecek.
-                    }
-
-                    $sellOrder = Order::where("id", $sellOrderId)->first();
-
-                    //Satın alma limiti gerçekleşmiş mi ?
-                    while(true){
-                        if(getOrderStatus($api, $coin_id, $coin_usd, $sellOrder)){
-                            break;
-                        }
-                        sleep(1); //Satın alma limitin kontrolü başarısız oldu. 1 saniye sonra tekrar denenecek.
-                    }
-
-                    sleep(5); //Diğer alım satıma geçiş için bekletme.
-
-                } //else konumuna gelemez bypass true olana kadar döngü içindedir.
-            }
-
-        }else{
-            $log = new Log;
-            $log->type = 2;
-            $log->coin_id = null;
-            $log->title = "Coin Select";
-            $log->description = "Coin bulunamadı!";
-            $log->save();
-        }
 
         return view('home.index');
     }

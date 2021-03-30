@@ -19,7 +19,7 @@ function getCommission($api, $coin_id, $coin_usd){
                 return $tradeFee["tradeFee"][0]["maker"]; //fee
             }else{
                 $log = new Log;
-                $log->type = 2;
+                $log->type = 1;
                 $log->coin_id = $coin_id;
                 $log->title = "TradeFee Data Error";
                 $log->description = "Komisyon bedeli bulunamadı!";
@@ -30,7 +30,7 @@ function getCommission($api, $coin_id, $coin_usd){
 
         }else{
             $log = new Log;
-            $log->type = 2;
+            $log->type = 1;
             $log->coin_id = $coin_id;
             $log->title = "TradeFee 404";
             $log->description = "Response Failed!";
@@ -138,7 +138,7 @@ function buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice){
             return $order->id;
         }else{
             $log = new Log;
-            $log->type = 2;
+            $log->type = 1;
             $log->coin_id = $coin_id;
             $log->title = "buyCoin Status Error";
             $log->description = "Satın alma limit farklı status değerine sahip. Data: ". $buyStatus;
@@ -201,7 +201,7 @@ function sellCoin($api, $coin_id, $coin_usd, $sellPiece, $sellPrice){
             return $order->id;
         }else{
             $log = new Log;
-            $log->type = 2;
+            $log->type = 1;
             $log->coin_id = $coin_id;
             $log->title = "sellCoin Status Error";
             $log->description = "Satış yapma limiti farklı status değerine sahip. Data: ". $sellStatus;
@@ -234,8 +234,8 @@ function openOrdersByPass($api, $coin_id, $coin_usd){
             $log = new Log;
             $log->type = 2;
             $log->coin_id = $coin_id;
-            $log->title = "sellCoin Limit Error";
-            $log->description = "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage();
+            $log->title = "Open Orders Bypass";
+            $log->description = "Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage();
             $log->save();
             sleep(5);
         }
