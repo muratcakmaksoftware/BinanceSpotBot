@@ -24,6 +24,7 @@ class Mint extends Command
     {
 
         $api = new Binance\API( base_path('public/binance/config.json')); //orjinal
+        $this->caOverride = true;
 
         $this->info("Spot Başlangıç: ". Carbon::now()->format("d.m.Y H:i:s"));
 
@@ -157,8 +158,5 @@ class Mint extends Command
         }
 
         $this->info("Spot Bitiş: ". Carbon::now()->format("d.m.Y H:i:s"));
-        //Log::info("Test test test :");
-
-        //return 0;
     }
 }
