@@ -133,6 +133,8 @@ function buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice){
             $order->price = $buyStatus["price"];
             $order->type = $buyStatus["type"];
             $order->status = $buyStatus["status"];
+            $order->var_piece = $buyPiece;
+            $order->var_price = $buyPrice;
             $order->save();
 
             return $order->id;
@@ -196,6 +198,8 @@ function sellCoin($api, $coin_id, $coin_usd, $sellPiece, $sellPrice){
             $order->price = $sellStatus["price"];
             $order->type = $sellStatus["type"];
             $order->status = $sellStatus["status"];
+            $order->var_piece = $sellPiece;
+            $order->var_price = $sellPrice;
             $order->save();
 
             return $order->id;

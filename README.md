@@ -16,5 +16,10 @@ Restart Windows
 
 ### Spot Rules
 ````
-Min: 10$
+En az işlem için gerekli miktar: 10$ gerekli işlem testi için 11$ gereklidir.
+
+Limit
+Yukarıdan satın alım yapılırsa bulunduğu miktardan satın alır buna dikkat edilmelidir.
+Her zaman satın alım bulunduğu limitin altından,
+Her zaman satış için bulunduğu limitin üstünden yapılmalıdır.
 ````

@@ -24,11 +24,11 @@ class Mint extends Command
     {
 
         $api = new Binance\API( base_path('public/binance/config.json')); //orjinal
-        $this->caOverride = true;
+        $api->caOverride = true;
 
         $this->info("Spot Başlangıç: ". Carbon::now()->format("d.m.Y H:i:s"));
 
-        $coin = Coin::where("id", 1)->first();
+        $coin = Coin::where("id", 3)->first();
         if(isset($coin)){
             $coin_id = $coin->id;
             $coin_name = $coin->name; //ADA
@@ -41,14 +41,15 @@ class Mint extends Command
             $this->info("Coin Sabit Kazanç: ". $coin_profit);
             $this->info("Coin Sürkülasyon Aralığı: ". $coin_purchase);
 
+
             $whileCounter = 1;
             while(true){
-                $this->info($whileCounter."-SPOT ALGORITHM START");
-                $this->info($whileCounter."-Önceden Yapılmış Siparişin İptali Bekleniyor...");
+                $this->info($whileCounter."-SPOT ALGORITHM START:". Carbon::now()->format("d.m.Y H:i:s"));
+                $this->info($whileCounter."-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...");
                 if(openOrdersByPass($api, $coin_id, $coin_usd)){ //Beklemede olan açık emir yoksa algoritmaya giriş yapabilir!
                     $this->info($whileCounter."-Orders Bypass OK!");
-                    //Komisyon bilgisinin alınması.
 
+                    //Komisyon bilgisinin alınması.
                     $fee = null;
                     while(true){
                         $fee = getCommission($api, $coin_id, $coin_usd);
@@ -69,12 +70,13 @@ class Mint extends Command
                         sleep(1);  //Cüzdan dolar bilgisi alınması başarısız oldu. 1 saniye sonra tekrar denenecek.
                     }
 
+                    //Test için en düşük 10 dolardan alım yapılabilir.
+                    $walletDolar = 21;
                     $this->info($whileCounter."-Cüzdandaki Dolar: ". $walletDolar);
-                    /*
-                    if($walletDolar > 15){ //test için sabitleme
-                        $walletDolar = 15;
-                    }
 
+                    //$this->info($whileCounter."-Cüzdandaki Dolar: ". $walletDolar);
+
+                    $this->info($whileCounter."-Stabiletesi kontrol ediliyor...");
                     //Alınacak coinin miktarın stabiletisini kontrol etme.
                     $buyPrice = null; //Alınacak coinin fiyatı
                     while(true){
@@ -84,6 +86,7 @@ class Mint extends Command
                         }
                         sleep(1); //Alınacak coinin miktarı başarısız oldu. 1 saniye sonra tekrar denenecek.
                     }
+                    $this->info($whileCounter."-Stabiletesi bulunmuş Fiyat: ". $buyPrice);
 
                     // ##################################################
 
@@ -93,18 +96,23 @@ class Mint extends Command
 
                     // ##################################################
 
+                    // ############# SATIN ALMA #############
+
+                    $this->info($whileCounter."-Satın Alınacak Fiyat: ". $buyPiece);
+                    $this->info($whileCounter."-Satın Alınacak Adet: ". $buyPiece);
+
+                    $this->info($whileCounter."-Satın Alma Limiti Koyma = Başlatıldı!");
                     //Satın alma limit eklenmesi.
-                    $buyOrderId = null;
-                    while(true){
-                        $buyOrderId = buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice);
-                        if($buyOrderId != null){
-                            break;
-                        }
-                        sleep(1); //Satın alma limitin eklenmesi başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    $buyOrderId = buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice);
+
+                    if($buyOrderId == null){
+                        $whileCounter++;
+                        break; //HATA ALINDIYSA DÖNGÜ SONLANDIR.
                     }
+                    $this->info($whileCounter."-Satın Alma Limiti = Başarıyla Koyuldu!");
 
+                    $this->info($whileCounter."-Satın Alma Limitinin gerçekleşmesi bekleniyor...");
                     $buyOrder = Order::where("id", $buyOrderId)->first();
-
                     //Satın alma limiti gerçekleşmiş mi ?
                     while(true){
                         if(getOrderStatus($api, $coin_id, $coin_usd, $buyOrder)){
@@ -112,6 +120,7 @@ class Mint extends Command
                         }
                         sleep(1); //Satın alma limitin kontrolü başarısız oldu. 1 saniye sonra tekrar denenecek.
                     }
+                    $this->info($whileCounter."-Satın Alma Limiti Başarıyla Gerçekleşti!");
 
                     // ##################################################
 
@@ -119,20 +128,26 @@ class Mint extends Command
                     $unitPurchasePrice = $buyPrice / $commissionReverse; // Birim alış fiyatı //Komisyonlu halde satın aldığımız fiyat.
                     $unitSellPrice = ($unitPurchasePrice + $coin_profit ) * $commissionReverse; // Birim satış fiyatı ( satış yapılacak tutar )
 
+                    $this->info($whileCounter."-Satılacak Fiyat: ". $unitSellPrice);
+                    $this->info($whileCounter."-Satılacak Adet: ". $buyPiece);
+
                     // ##################################################
 
+                    // ############# SATIŞ YAPMA #############
+
+                    $this->info($whileCounter."-Satış Limiti Koyma = Başlatıldı!");
                     //Satış limitin oluşturulması
-                    $sellOrderId = null;
-                    while(true){
-                        $sellOrderId = sellCoin($api, $coin_id, $coin_usd, $buyPiece, $unitSellPrice); //buyPiece Alındığı adet kadar satılacak.
-                        if($sellOrderId != null){
-                            break;
-                        }
-                        sleep(1); //Satış limitin eklenmesi başarısız oldu. 1 saniye sonra tekrar denenecek.
+                    $sellOrderId = sellCoin($api, $coin_id, $coin_usd, $buyPiece, $unitSellPrice); //buyPiece Alındığı adet kadar satılacak.
+
+                    if($sellOrderId == null){
+                        $whileCounter++;
+                        break; //HATA ALINDIYSA DÖNGÜ SONLANDIR.
                     }
+                    $this->info($whileCounter."-Satış Limiti Koyma = Başarıyla Koyuldu!");
 
                     $sellOrder = Order::where("id", $sellOrderId)->first();
 
+                    $this->info($whileCounter."-Satış işleminin gerçekleşmesi bekleniyor...");
                     //Satın alma limiti gerçekleşmiş mi ?
                     while(true){
                         if(getOrderStatus($api, $coin_id, $coin_usd, $sellOrder)){
@@ -140,13 +155,14 @@ class Mint extends Command
                         }
                         sleep(1); //Satın alma limitin kontrolü başarısız oldu. 1 saniye sonra tekrar denenecek.
                     }
-
-                    sleep(5); //Diğer alım satıma geçiş için bekletme.*/
+                    $this->info($whileCounter."-Satın Limiti Başarıyla Gerçekleşti!");
 
                 } //else konumuna gelemez bypass true olana kadar döngü içindedir.
-                $this->info($whileCounter."-SPOT ALGORITHM END");
-                sleep(5);
-            }
+                $this->info($whileCounter."-SPOT ALGORITHM END: ".Carbon::now()->format("d.m.Y H:i:s"));
+                $whileCounter++;
+                sleep(5); ////Diğer alım satıma geçiş için bekletme
+            } // end while
+
 
         }else{
             $log = new \App\Models\Log;
