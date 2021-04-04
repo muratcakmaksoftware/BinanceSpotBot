@@ -2,57 +2,79 @@
 
 
 	<head>
-	
+
 	</head>
-	
+
 	<body>
-	
+
 		<script>
-		 
+
 			var commissionPercent = 0.001; //komisyon %0.1
 			var wallet = 11; // Kasa $
 			var profit = 0.0005; // Her alım için kar // birim cent
 			var buyPrice = 0.0583665; //coin fiyatı
 			var buyPiece = Math.floor(wallet / buyPrice); //alınacak adet.
-			
+
 			console.log("Kazanç Miktarı: "+ profit);
 			console.log("Cüzdan Dolar: $"+ wallet);
 			console.log("Alış Adeti: "+ buyPiece);
 			console.log("Alışda ödenecek dolar: "+ (buyPrice * buyPiece).toFixed(8));
-			console.log("Her Adet için Alış Fiyatı: "+ buyPrice.toFixed(8));	
-			
-			//var buyCommissionPrice = ((buyPrice * commissionPercent) / 100).toFixed(8); //her adet için satın alma işleminde gerçekleşecek komisyon bilgisi.
-			//console.log("Her Adet başına alınacak komisyon: "+buyCommissionPrice);			
-			
-			//var buyCommissionTotal = buyCommissionPrice * buyPiece; //toplam alınacak komisyon bilgisi
-			//console.log("Toplam Satın Alma İşleminde Kesilecek Komisyon: "+buyCommissionTotal.toFixed(8));
-			
+			console.log("Her Adet için Alış Fiyatı: "+ buyPrice.toFixed(8));
+
+            ////////////////////var buyCommissionPrice = ((buyPrice * commissionPercent) / 100).toFixed(8); //her adet için satın alma işleminde gerçekleşecek komisyon bilgisi.
+            ////////////////////console.log("Her Adet başına alınacak komisyon: "+buyCommissionPrice);
+
+            ////////////////////var buyCommissionTotal = buyCommissionPrice * buyPiece; //toplam alınacak komisyon bilgisi
+			////////////////////console.log("Toplam Satın Alma İşleminde Kesilecek Komisyon: "+buyCommissionTotal.toFixed(8));
+
+
 			var buyPieceCommission = buyPiece * commissionPercent;//Alım yapıldığında coin den komisyon düşümü.
-			console.log("Satın alım komisyon düşülecek adet: "+ buyPieceCommission);
-			
+			console.log("Satın alım için komisyon düşülecek adet: "+ buyPieceCommission); //ÖRNEK ADET: 188 = 188 * 0,001 = 0,188
+
 			/* //Düşülmüş olan komisyon coin bilgisiyle = düşülmüş olan her adet için komisyon dolar bilgisini öğrenme.
 				Alınan adet = 188
-				0,188 = toplam kesilen komisyon miktarı COİN
+				188 * 0,001 = 0,188 = toplam kesilen komisyon miktarı COİN
 				0,0583665 * 0,188 = 0,010972902 // komisyon kesilen coinin toplam dolar karşılığı.
-				0,010972902 / 188 = 0,0000583665 // coin başına alınan komisyon dolar bilgisi.			
+				0,010972902 / 188 = 0,0000583665 // coin başına alınan komisyon dolar bilgisi.
 			*/
 			var buyCommissionPrice = ((buyPrice * buyPieceCommission) / buyPiece).toFixed(8); // Adet başına kesilen komisyon doları
 			console.log("Adet başına kesilen komisyon doları: "+buyCommissionPrice);
-			
-			buyPiece = buyPiece - buyPieceCommission; //satış için gerekli kalan miktar.
-			console.log("Satın alınan coinin komisyonu düşülmüş adet: "+ buyPiece.toFixed(8));	
-			
+
+			var sellPiece = buyPiece - buyPieceCommission; //satış için gerekli KALAN MİKTAR
+			console.log("Satın aldıktan sonra komisyon adetten düşmüş ve satış için kalan adet: "+ sellPiece.toFixed(8));
+
 			//Satış miktarının belirlenmesi.
-			var sellPrice = (parseFloat(buyPrice) + parseFloat(profit)) + parseFloat(buyCommissionPrice); // (satın alınacak miktar + kar artım ) * kesilecek komisyon bilgisi /// 1 tane satış için toplam birim fiyatı
-			console.log("Satış Fiyatı: "+sellPrice.toFixed(8));
-			console.log("Toplam Kâr: "+ (sellPrice - buyPrice).toFixed(8)); 
-			
-			var earnMoney = sellPrice * buyPiece; // artımlı ve komisyonlu alım * adet
-			console.log("Satışta kazanılacak toplam: $"+earnMoney.toFixed(8));
-			
-			
+
+                            // (alım miktar + kar artım )
+			var sellPrice = (parseFloat(buyPrice) + parseFloat(profit)); //Komisyonsuz eklenmemiş karlı satış rakamı
+            //Satışta kesilecek komisyon bilgisi
+            /*
+                Satış için kalan adet Adet = 188
+				188 * 0,001 = 0,188 = toplam kesilen komisyon miktarı COİN
+				0,0587266 * 0,188 = 0,0110406008 // komisyon kesilen coinin toplam dolar karşılığı.
+				0,0587266 * 0,188 = 0,0587266 // coin başına alınan komisyon dolar bilgisi.
+			*/
+            var sellCommissionPrice = (sellPrice * (sellPiece * commissionPercent)) / sellPiece; //satışta kesilecek olan adet başına komisyon doları
+            var totalCommission = buyCommissionPrice + sellCommissionPrice; //Satın alım komisyon toplamı ve satışta alacak komisyon toplamı
+            console.log("Her alım adeti için ödenen komisyon: "+parseFloat(buyCommissionPrice).toFixed(8));
+            console.log("Her satım adeti için ödenen komisyon: "+parseFloat(sellCommissionPrice).toFixed(8));
+            console.log("Toplam Ödenen komisyon: "+ parseFloat((buyCommissionPrice + sellCommissionPrice)).toFixed(8));
+
+            sellPrice = parseFloat(sellPrice) + parseFloat(totalCommission);
+            console.log("Kârlı Satış Fiyatı: "+sellPrice.toFixed(8));
+
+            console.log("Toplam Kâr: "+ parseFloat((parseFloat(sellPrice) - parseFloat(buyPrice)) - parseFloat(totalCommission)).toFixed(8));
+
+            //var earnMoney = (sellPrice * sellPiece); //satış gerçekleşirse kazanılacak miktar
+            //console.log("Satışta kazanılacak toplam: $"+earnMoney.toFixed(8));
+
+
+
+
+            //sellPrice = (sellPrice + sellCommissionPrice).toFixed(8); //
+
 		</script>
-	
+
 	</body>
 
 </html>
