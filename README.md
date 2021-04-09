@@ -1,3 +1,5 @@
+- PHP Version ^7.3
+
 - [Install jaggedsoft/php-binance-api](https://github.com/jaggedsoft/php-binance-api)
 ````
 composer require "jaggedsoft/php-binance-api @dev"
@@ -22,4 +24,9 @@ Limit
 Yukarıdan satın alım yapılırsa bulunduğu miktardan satın alır buna dikkat edilmelidir.
 Her zaman satın alım bulunduğu limitin altından,
 Her zaman satış için bulunduğu limitin üstünden yapılmalıdır.
+
+Alım ve Satışta Adet
+Ondalıklı basamak sayısı 1 olabilir en fazla
+Örnek: 1.1 doğru 1.11 yanlıştır.
+
 ````

@@ -2,13 +2,7 @@
 
 use App\Models\Log;
 use App\Models\Order;
-
-if(!function_exists('testim')){
-
-    function testim(){
-        return "okdsas";
-    }
-}
+use App\Models\OrderLog;
 
 //Komisyon bilgisinin alınması.
 function getCommission($api, $coin_id, $coin_usd){
@@ -43,7 +37,7 @@ function getCommission($api, $coin_id, $coin_usd){
         $log->type = 2;
         $log->coin_id = $coin_id;
         $log->title = "TradeFee API Error";
-        $log->description = $e->getMessage();
+        $log->description = $e->getMessage(). " Satır: ". $e->getLine();
         $log->save();
         return null;
     }
@@ -62,7 +56,7 @@ function getWalletDolar($api, $coin_id){
         $log->type = 2;
         $log->coin_id = $coin_id;
         $log->title = "Balance API Error";
-        $log->description = "Cüzdan Dolar Bilgisi Alınamadı: ".$e->getMessage();
+        $log->description = "Cüzdan Dolar Bilgisi Alınamadı: ".$e->getMessage(). " Satır: ". $e->getLine();
         $log->save();
         return null;
     }
@@ -109,7 +103,7 @@ function getPaymentCoinAmount($api, $coin_id, $coin_usd, $coin_purchase){
             $log->type = 2;
             $log->coin_id = $coin_id;
             $log->title = "Price Error";
-            $log->description = "Para Birimi Alınamadı. Detay: ". $e->getMessage();
+            $log->description = "Para Birimi Alınamadı. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
             $log->save();
             return null;
         }
@@ -152,7 +146,7 @@ function buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice){
         $log->type = 2;
         $log->coin_id = $coin_id;
         $log->title = "buyCoin Limit Error";
-        $log->description = "Satın Alma Limit Başarısız. Detay: ". $e->getMessage();
+        $log->description = "Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
         $log->save();
         return null;
     }
@@ -176,7 +170,7 @@ function getOrderStatus($api, $coin_id, $coin_usd, $order){
         $log->type = 2;
         $log->coin_id = $coin_id;
         $log->title = "Limit Status Error";
-        $log->description = "Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage();
+        $log->description = "Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
         $log->save();
         return false;
     }
@@ -217,7 +211,7 @@ function sellCoin($api, $coin_id, $coin_usd, $sellPiece, $sellPrice){
         $log->type = 2;
         $log->coin_id = $coin_id;
         $log->title = "sellCoin Limit Error";
-        $log->description = "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage();
+        $log->description = "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
         $log->save();
         return null;
     }
@@ -239,7 +233,7 @@ function openOrdersByPass($api, $coin_id, $coin_usd){
             $log->type = 2;
             $log->coin_id = $coin_id;
             $log->title = "Open Orders Bypass";
-            $log->description = "Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage();
+            $log->description = "Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
             $log->save();
             sleep(5);
         }
@@ -248,3 +242,11 @@ function openOrdersByPass($api, $coin_id, $coin_usd){
 
 }
 
+function orderLogAdd($title, $description, $unique_id = null, $orderId = null){
+    $orderLog = new OrderLog;
+    $orderLog->unique_id = $unique_id;
+    $orderLog->orderId = $orderId;
+    $orderLog->title = $title;
+    $orderLog->description = $description;
+    $orderLog->save();
+}
