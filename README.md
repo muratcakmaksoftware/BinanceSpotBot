@@ -29,4 +29,7 @@ Alım ve Satışta Adet
 Ondalıklı basamak sayısı 1 olabilir en fazla
 Örnek: 1.1 doğru 1.11 yanlıştır.
 
+Min Kar Oranı
+0,008 de komisyon adetten düştüğünden ve kalan adet cüzdanda kaldığından bu adetten en düşük kazanç oranıdır.
+En düşük $20 ile alım satım yapılmalıdır
 ````

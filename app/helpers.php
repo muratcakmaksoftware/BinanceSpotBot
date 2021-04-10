@@ -116,8 +116,8 @@ function getPaymentCoinAmount($api, $coin_id, $coin_usd, $coin_purchase){
 function buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice){
 
     try{
-        $buyStatus = $api->buy($coin_usd, $buyPiece, $buyPrice); // {"symbol":"ADAUSDT","orderId":1128188745,"orderListId":-1,"clientOrderId":"2pOvnTiBwWlB0K4WfQMsMy","transactTime":1615919001851,"price":"1.00000000","origQty":"10.00000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","fills":[]}
-        if($buyStatus["status"] == "NEW" && $buyStatus["side"] == "BUY") { //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ? NEW = Sipariş motor tarafından kabul edildi & BUY satın alma olduğunda emin olmak için ek kontrol.
+        $buyStatus = $api->buy($coin_usd, $buyPiece, $buyPrice); // {"symbol":"ADAUSDT","orderId":1128188745,"orderListId":-1,"clientOrderId":"2pOvnTiBwWlB0K4WfQMsMy","transactTime":1615919001851,"price":"1.00000000","origQty":"10.00000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","fills":[]} //////// NEW DATA
+        if(($buyStatus["status"] == "NEW" || $buyStatus["status"] == "FILLED") && $buyStatus["side"] == "BUY") { //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ? NEW = Sipariş motor tarafından kabul edildi & BUY satın alma olduğunda emin olmak için ek kontrol.
             $order = new Order;
             $order->coin_id = $coin_id;
             $order->orderId = $buyStatus["orderId"];
@@ -129,6 +129,7 @@ function buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice){
             $order->status = $buyStatus["status"];
             $order->var_piece = $buyPiece;
             $order->var_price = $buyPrice;
+            $order->json_data = json_encode($buyStatus);
             $order->save();
 
             return $order->id;
@@ -137,7 +138,7 @@ function buyCoin($api, $coin_id, $coin_usd, $buyPiece, $buyPrice){
             $log->type = 1;
             $log->coin_id = $coin_id;
             $log->title = "buyCoin Status Error";
-            $log->description = "Satın alma limit farklı status değerine sahip. Data: ". $buyStatus;
+            $log->description = "Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus);
             $log->save();
             return null;
         }
@@ -162,7 +163,7 @@ function getOrderStatus($api, $coin_id, $coin_usd, $order){
                 $order->save();
                 return true; //işlem gerçekleşmiş.
             }else{
-                sleep(1); // 1 saniye 1 kere satın alınmış mı kontrolü
+                sleep(2); // 2 saniye de 1 kere satın alınmış mı kontrolü
             }
         }
     }catch (\Exception $e) {
@@ -182,7 +183,7 @@ function sellCoin($api, $coin_id, $coin_usd, $sellPiece, $sellPrice){
 
     try{
         $sellStatus = $api->sell($coin_usd, $sellPiece, $sellPrice); // {"symbol":"TRXUSDT","orderId":701099196,"orderListId":-1,"clientOrderId":"lk9pIK7dpR9TPBuo1uPkJx","transactTime":1615926174851,"price":"0.05800000","origQty":"500.00000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","fills":[]}
-        if($sellStatus["status"] == "NEW" && $sellStatus["side"] == "SELL") { //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ? NEW = Sipariş motor tarafından kabul edildi & SELL satış olduğunda emin olmak için ek kontrol.
+        if(($sellStatus["status"] == "NEW" || $sellStatus["status"] == "FILLED") && $sellStatus["side"] == "SELL") { //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ? NEW = Sipariş motor tarafından kabul edildi & SELL satış olduğunda emin olmak için ek kontrol.
             $order = new Order;
             $order->coin_id = $coin_id;
             $order->orderId = $sellStatus["orderId"];
@@ -194,6 +195,7 @@ function sellCoin($api, $coin_id, $coin_usd, $sellPiece, $sellPrice){
             $order->status = $sellStatus["status"];
             $order->var_piece = $sellPiece;
             $order->var_price = $sellPrice;
+            $order->json_data = json_encode($sellStatus);
             $order->save();
 
             return $order->id;
@@ -202,7 +204,7 @@ function sellCoin($api, $coin_id, $coin_usd, $sellPiece, $sellPrice){
             $log->type = 1;
             $log->coin_id = $coin_id;
             $log->title = "sellCoin Status Error";
-            $log->description = "Satış yapma limiti farklı status değerine sahip. Data: ". $sellStatus;
+            $log->description = "Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus);
             $log->save();
             return null;
         }
@@ -249,4 +251,14 @@ function orderLogAdd($title, $description, $unique_id = null, $orderId = null){
     $orderLog->title = $title;
     $orderLog->description = $description;
     $orderLog->save();
+}
+
+
+function countDecimals($value) { //ondalıklı sayısı kaç adet varsa sayar ör: 1.23444 = 5 döner
+    $exp = explode(".", strval($value));
+    if(count($exp) > 1){
+        return strlen($exp[1]);
+    }else{
+        return 1;
+    }
 }

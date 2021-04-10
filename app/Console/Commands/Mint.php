@@ -83,8 +83,8 @@ class Mint extends Command
                         sleep(1);  //Cüzdan dolar bilgisi alınması başarısız oldu. 1 saniye sonra tekrar denenecek.
                     }
 
-                    //Test için en düşük 10 dolardan alım yapılabilir.
-                    $walletDolar = 12;
+                    //Test için en düşük 20 dolardan alım yapılabilir.
+                    $walletDolar = 20;
                     $this->info($whileCounter."-Cüzdandaki Dolar: ". $walletDolar);
                     orderLogAdd("", $whileCounter."-Cüzdandaki Dolar: ". $walletDolar, $unique_id);
 
@@ -102,11 +102,13 @@ class Mint extends Command
                     $this->info($whileCounter."-Stabiletesi bulunmuş Fiyat: ". $buyPrice);
                     orderLogAdd("", $whileCounter."-Stabiletesi bulunmuş Fiyat: ". $buyPrice, $unique_id);
 
+                    $coin_digit = pow(10, countDecimals($buyPrice)); //Coinin küsürat sayısının öğrenilmesi ve üstü alınarak sellPrice da düzeltme yapılması.
 
                     // ################## [KOMİSYON VE ALINACAK ADETIN BELİRLENMESİ BAŞLANGIÇ] ##################
 
                     $commissionPercent = $fee; //Binance Komisyon
                     $buyPiece = floor($walletDolar / $buyPrice); //alınacak adet.
+
 
                     // ################## [KOMİSYON VE ALINACAK ADETIN BELİRLENMESİ BİTİŞ] ##################
 
@@ -114,11 +116,12 @@ class Mint extends Command
 
                     // ############# [SATIN ALMA BAŞLANGIÇ] #############
 
-                    $this->info($whileCounter."-Satın Alınacak Fiyat: ". $buyPiece);
-                    orderLogAdd("Satın Alma", $whileCounter."-Satın Alınacak Fiyat: ". $buyPiece, $unique_id);
+                    $this->info($whileCounter."-Satın Alınacak Fiyat: ". $buyPrice);
+                    orderLogAdd("Satın Alma", $whileCounter."-Satın Alınacak Fiyat: ". $buyPrice, $unique_id);
                     $this->info($whileCounter."-Satın Alınacak Adet: ". $buyPiece);
                     orderLogAdd("Satın Alma", $whileCounter."-Satın Alınacak Adet: ". $buyPiece, $unique_id);
-                    $this->info($whileCounter."-Satın Alışda ödenecek dolar: ". ($buyPrice * $buyPiece));
+                    $buyDolar = $buyPrice * $buyPiece;
+                    $this->info($whileCounter."-Satın Alışda ödenecek dolar: ". $buyDolar);
                     orderLogAdd("Satın Alma", $whileCounter."-Satın Alışda ödenecek dolar: ". ($buyPrice * $buyPiece), $unique_id);
 
                     $this->info($whileCounter."-Satın Alma Limiti Koyma = Başlatıldı!");
@@ -167,13 +170,15 @@ class Mint extends Command
                     orderLogAdd("Satın Alım Komisyon", $whileCounter."-Adet başına kesilen komisyon doları: ". $buyCommissionPrice, $unique_id);
 
                     $sellPiece = $buyPiece - $buyPieceCommission; //satış için KALAN ADET
+                    $sellPiece = floor($sellPiece * 10) / 10; // satış için basamak düzeltme. ör: 10.989 => 10.9
                     $this->info($whileCounter."-Satın aldıktan sonra komisyon adetten düşmüş ve satış için kalan adet: ". $sellPiece);
                     orderLogAdd("Satın Alma Komisyon", $whileCounter."-Satın aldıktan sonra komisyon adetten düşmüş ve satış için kalan adet: ". $sellPiece, $unique_id);
 
                     //Satış miktarının belirlenmesi.
 
                     //           (alım miktar + kar artım )
-                    $sellPrice = $buyPrice + $coin_profit;
+                    $tolerance = 0.002;
+                    $sellPrice = $buyPrice + $coin_profit + $tolerance;
 
                     //Satışta kesilecek komisyon bilgisi
                     /*
@@ -193,6 +198,7 @@ class Mint extends Command
                     orderLogAdd("Komisyon Analiz", $whileCounter."-Toplam Ödenen komisyon: $". $totalCommission, $unique_id);
 
                     $sellPrice = $sellPrice + $totalCommission;
+                    $sellPrice = ceil($sellPrice * $coin_digit) / $coin_digit; //kusurat duzeltme örn: 1.2359069 => 1.23591
 
                     // ############# [SATIŞ BİLGİLERİNİN HESAPLANMA İŞLEMLERİ BİTİŞ] #############
 
@@ -202,7 +208,7 @@ class Mint extends Command
 
                     $this->info($whileCounter."-Satılacak Fiyat: ". $sellPrice);
                     orderLogAdd("Satış Yapma", $whileCounter."-Satılacak Fiyat: ". $sellPrice, $unique_id);
-                    $this->info($whileCounter."-Satılacak Fiyat: ". $sellPiece);
+                    $this->info($whileCounter."-Satılacak Adet: ". $sellPiece);
                     orderLogAdd("Satış Yapma", $whileCounter."-Satılacak Adet: ". $sellPiece, $unique_id);
 
                     $this->info($whileCounter."-Satış Limiti Koyma = Başlatıldı!");
@@ -232,10 +238,17 @@ class Mint extends Command
 
                     // ################## [SATIŞ YAPMA BİTİŞ] ##################
 
-
                     //Kar analiz
                     $this->info($whileCounter."-Toplam Kâr: ". floatval(($sellPrice - $buyPrice) - $totalCommission));
                     orderLogAdd("Kâr", $whileCounter."-Toplam Kâr: ". floatval(($sellPrice - $buyPrice) - $totalCommission), $unique_id);
+
+                    $sellDolar = $sellPrice * $sellPiece;
+                    $this->info($whileCounter."-Cüzdana Dönen Dolar: ". $sellDolar);
+                    orderLogAdd("", $whileCounter."-Cüzdana Dönen Dolar: ". $sellDolar, $unique_id);
+
+                    $gain = $sellDolar - $buyDolar;
+                    $this->info($whileCounter."-Cüzdana Kazanç: ". $gain);
+                    orderLogAdd("", $whileCounter."-Cüzdana Kazanç: ". $gain, $unique_id);
 
                 } //else konumuna gelemez bypass true olana kadar döngü içindedir.
                 $this->info($whileCounter."-SPOT ALGORITHM END: ".Carbon::now()->format("d.m.Y H:i:s"));
