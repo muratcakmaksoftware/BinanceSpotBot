@@ -11,7 +11,7 @@ use \Binance;
 
 class Mint extends Command
 {
-    protected $signature = 'command:mint';
+    protected $signature = 'command:mint {coin} {}';
 
     protected $description = 'Darphanem';
 
@@ -22,20 +22,20 @@ class Mint extends Command
 
     public function handle()
     {
-
-        $api = new Binance\API( base_path('public/binance/config.json')); //orjinal
+        $coinName = $this->argument("coin");
+        dd("TRY bilgisi alınacak ve uyarlama yapılacak.");
+        $api = new Binance\API(base_path('public/binance/config.json')); //orjinal
         $api->caOverride = true;
 
         $this->info("Spot Başlangıç: ". Carbon::now()->format("d.m.Y H:i:s"));
 
-        $coin = Coin::where("id", 5)->first();
+        $coin = Coin::where("name", $coinName)->first();
         if(isset($coin)){
-
             $coin_id = $coin->id;
             $coin_name = $coin->name; //ADA
             $coin_usd = $coin->name_usd; //ADAUSDT
             $coin_profit = $coin->profit; // Satışta alacağımız kazanç miktarı
-            $coin_purchase = $coin->purchase; // satın alma aralık  coin para birimi artı ve eksi aralığını belirler.
+            $coin_purchase = $coin->purchase; // satın alma aralık coin para birimi artı ve eksi aralığını belirler.
             $this->info("Coin ID: ". $coin_id);
             orderLogAdd("Coin ID", $coin_id);
             $this->info("Coin Adı: ". $coin_name);
