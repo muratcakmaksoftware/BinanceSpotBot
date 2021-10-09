@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Helpers\BinanceHelper;
 use Illuminate\Console\Command;
 use \Binance;
 
@@ -38,8 +39,8 @@ class Test extends Command
      */
     public function handle()
     {
-       $api = new Binance\API("NE2zfaJ3DeUi3E8slgkRp8tuzBjsQIqGXOJKPUtSSNkn3YhzQ2WIazskyb20m8nI", "fMhRLVEPFYe510tl4eAeQqUjSLW4igAwyLqKgiLA8bCkdpCgnmMbM0oAXe9MT8T4", true);
-       $ticker = $api->prices();// tüm para birimlerini alma
-       dd(print_r($ticker));
+        $binanceHelper =  new BinanceHelper(true);
+        $fee = $binanceHelper->getCommission(1,"BNBBUSD", true);
+        $this->info($fee);
     }
 }

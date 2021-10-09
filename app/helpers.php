@@ -1,5 +1,5 @@
 <?php
-
+/*
 use App\Models\Log;
 use App\Models\Order;
 use App\Models\OrderLog;
@@ -262,3 +262,4 @@ function countDecimals($value) { //ondalıklı sayısı kaç adet varsa sayar ö
         return 1;
     }
 }
+*/
