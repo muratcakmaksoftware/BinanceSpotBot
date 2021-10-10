@@ -10,9 +10,11 @@ use \Binance;
 class BinanceHelper{
 
     protected $api = null;
-    function __construct($test = false){
+    protected $coinId = null;
+    function __construct($coin_id, $test = false){
+        $this->coinId = $coin_id;
         if($test){
-            $this->api = new Binance\API("NE2zfaJ3DeUi3E8slgkRp8tuzBjsQIqGXOJKPUtSSNkn3YhzQ2WIazskyb20m8nI", "fMhRLVEPFYe510tl4eAeQqUjSLW4igAwyLqKgiLA8bCkdpCgnmMbM0oAXe9MT8T4", true);
+            //$this->api = new Binance\API("NE2zfaJ3DeUi3E8slgkRp8tuzBjsQIqGXOJKPUtSSNkn3YhzQ2WIazskyb20m8nI", "fMhRLVEPFYe510tl4eAeQqUjSLW4igAwyLqKgiLA8bCkdpCgnmMbM0oAXe9MT8T4", true);
         }else{
             $this->api = new Binance\API(base_path('public/binance/config.json')); //original
             $this->api->caOverride = true;
@@ -59,7 +61,7 @@ class BinanceHelper{
     }
 
     //Cüzdan daki dolar bilgisi alınıyor
-    public function getWalletDolar($coin_id){
+    public function getCurrency($coin_id){
         try{
             $ticker = $this->api->prices();
             $balances = $this->api->balances($ticker)["USDT"]; //Array ( [available] => 0.07340000 [onOrder] => 100.00000000 [btcValue] => 0.00000170 [btcTotal] => 0.00232070 )
@@ -234,37 +236,49 @@ class BinanceHelper{
     }
 
     //Daha önceden bu coine limit emri verilmiş mi kontrolü varsa gerçekleşene kadar bekleyecek.
-    function openOrdersByPass($coin_id, $coin_usd){
+    function openOrdersByPass($spot){
         while(true){
-            try{
-                $openorders = $this->api->openOrders($coin_usd); // Array ( [0] => Array ( [symbol] => ADAUSDT [orderId] => 1061155402 [orderListId] => -1 [clientOrderId] => and_7ef0d8f35bd3440ca487d811e99515b1 [price] => 1.23000000 [origQty] => 100.00000000 [executedQty] => 0.00000000 [cummulativeQuoteQty] => 0.00000000 [status] => NEW [timeInForce] => GTC [type] => LIMIT [side] => SELL [stopPrice] => 0.00000000 [icebergQty] => 0.00000000 [time] => 1614853539597 [updateTime] => 1614853539597 [isWorking] => 1 [origQuoteOrderQty] => 0.00000000 ) )
+            //try{
+                /*
+                 array:1 [
+                      0 => array:18 [
+                        "symbol" => "MATICTRY"
+                        "orderId" => 17142850
+                        "orderListId" => -1
+                        "clientOrderId" => "web_3f5c4f5cabd442c9857ab71ddd244b87"
+                        "price" => "12.50000000"
+                        "origQty" => "559.90000000"
+                        "executedQty" => "0.00000000"
+                        "cummulativeQuoteQty" => "0.00000000"
+                        "status" => "NEW"
+                        "timeInForce" => "GTC"
+                        "type" => "LIMIT"
+                        "side" => "SELL"
+                        "stopPrice" => "0.00000000"
+                        "icebergQty" => "0.00000000"
+                        "time" => 1633867470193
+                        "updateTime" => 1633867470193
+                        "isWorking" => true
+                        "origQuoteOrderQty" => "0.00000000"
+                      ]
+                    ]
+                 * */
+
+                $openorders = $this->api->openOrders($spot);
+                dd($openorders);
                 if(count($openorders) > 0){ //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
                     // limitin gerçekleşmesi bekleniyor.
                     sleep(10);
                 }else{
                     return true; //limit emri bulunmadı.
                 }
-            }catch (\Exception $e) {
-                $log = new Log;
-                $log->type = 2;
-                $log->coin_id = $coin_id;
-                $log->title = "Open Orders Bypass";
-                $log->description = "Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-                $log->save();
+            /*}catch (\Exception $e) {
+                LogHelper::log(2, $this->coinId, "Open Orders Bypass", "Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
-            }
+            }*/
 
         }
 
-    }
-
-    function orderLogAdd($title, $description, $unique_id = null, $orderId = null){
-        $orderLog = new OrderLog;
-        $orderLog->unique_id = $unique_id;
-        $orderLog->orderId = $orderId;
-        $orderLog->title = $title;
-        $orderLog->description = $description;
-        $orderLog->save();
     }
 
 
