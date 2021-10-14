@@ -70,7 +70,7 @@ class Test extends Command
             $this->info("Coin Sürkülasyon Aralığı: ".$coinPurchase);
             LogHelper::orderLog("Coin Sürkülasyon Aralığı", $coinPurchase);
 
-            $binanceHelper =  new BinanceHelper($coinId, $testStatus);
+            $binanceHelper =  new BinanceHelper($coinId);
             $whileCounter = 1;
             while(true){
                 $uniqueId = uniqid(rand(), true);
@@ -83,9 +83,12 @@ class Test extends Command
                 $this->info($whileCounter."-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...");
                 LogHelper::orderLog("", $whileCounter."-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...", $uniqueId);
 
-                if($binanceHelper->openOrdersByPass($spot)) { //Beklemede olan açık emir yoksa algoritmaya giriş yapabilir!
-                    dd("asdasd");
-                }
+                $binanceHelper->waitOpenOrders($spot); //Beklemede olan açık emir yoksa algoritmaya giriş yapabilir!
+                $fee = $binanceHelper->getCommission($spot);
+                $this->info($whileCounter."-Komisyon: ". $fee);
+                LogHelper::orderLog("", $whileCounter."-Komisyon: ". $fee, $uniqueId);
+
+
             }
         }else{
             LogHelper::log(1, "", "Coin Select", "Coin bulunamadı!");

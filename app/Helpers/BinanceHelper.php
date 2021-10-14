@@ -22,42 +22,40 @@ class BinanceHelper{
     }
 
     //Komisyon bilgisinin alınması.
-    function getCommission($coin_id, $coin_usd, $test = false){
-        if($test){
-            return 0.001;
-        }
-        try{
-            $fee = $this->api->commissionFee($coin_usd);
-            /*
-             * Taker = direk piyasadan direk alma veya satma şeklinde uygulanan komisyondur ve daha yüksek komisyon alır.
-             * Maker = limit emirleriyle işlemlerde daha düşük komisyon almaktadır.
-               0 => array:3 [
-                "symbol" => "XRPUSDT"
-                "makerCommission" => "0.001"
-                "takerCommission" => "0.001"
-              ]
-             * */
-            if(isset($fee[0]["makerCommission"])){
-                return $fee[0]["makerCommission"];
-            }else{
+    function getCommission($spot){
+        while(true){
+            try{
+                $fee = $this->api->commissionFee($spot);
+                /*
+                 * Taker = direk piyasadan direk alma veya satma şeklinde uygulanan komisyondur ve daha yüksek komisyon alır.
+                 * Maker = limit emirleriyle işlemlerde daha düşük komisyon almaktadır.
+                   0 => array:3 [
+                    "symbol" => "XRPUSDT"
+                    "makerCommission" => "0.001"
+                    "takerCommission" => "0.001"
+                  ]
+                 * */
+                if(isset($fee[0]["makerCommission"])){
+                    return $fee[0]["makerCommission"];
+                }else{
+                    $log = new Log;
+                    $log->type = 1;
+                    $log->coin_id = $this->coinId;
+                    $log->title = "commissionFee 404";
+                    $log->description = "Response Failed!";
+                    $log->save();
+                    sleep(2);
+                }
+            }catch (\Exception $e){
                 $log = new Log;
-                $log->type = 1;
-                $log->coin_id = $coin_id;
-                $log->title = "commissionFee 404";
-                $log->description = "Response Failed!";
+                $log->type = 2;
+                $log->coin_id = $this->coinId;
+                $log->title = "commissionFee API Error";
+                $log->description = $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
-                return null; //Default commission value.
+                sleep(5);
             }
-        }catch (\Exception $e){
-            $log = new Log;
-            $log->type = 2;
-            $log->coin_id = $coin_id;
-            $log->title = "commissionFee API Error";
-            $log->description = $e->getMessage(). " Satır: ". $e->getLine();
-            $log->save();
-            return null;
         }
-
     }
 
     //Cüzdan daki dolar bilgisi alınıyor
@@ -235,8 +233,8 @@ class BinanceHelper{
         }
     }
 
-    //Daha önceden bu coine limit emri verilmiş mi kontrolü varsa gerçekleşene kadar bekleyecek.
-    function openOrdersByPass($spot){
+    //Örnek MATICTRY belirtilen spot birimine daha önceden emir verilmişse emir gerçekleşene kadar bekletir.
+    function waitOpenOrders($spot){
         while(true){
             //try{
                 /*
@@ -265,10 +263,9 @@ class BinanceHelper{
                  * */
 
                 $openorders = $this->api->openOrders($spot);
-                dd($openorders);
                 if(count($openorders) > 0){ //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
                     // limitin gerçekleşmesi bekleniyor.
-                    sleep(10);
+                    sleep(2);
                 }else{
                     return true; //limit emri bulunmadı.
                 }
