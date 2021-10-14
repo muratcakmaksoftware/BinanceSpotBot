@@ -42,8 +42,8 @@ class Test extends Command
      */
     public function handle()
     {
-        $coinName = $this->argument("coin"); //Ex: MATIC
-        $currency = $this->argument("currency"); //Ex: TRY
+        $coinName = strtoupper($this->argument("coin")); //Ex: MATIC
+        $currency = strtoupper($this->argument("currency")); //Ex: TRY
 
         $coin = Coin::where("name", $coinName)->first();
         if(isset($coin)){
@@ -70,11 +70,11 @@ class Test extends Command
             $this->info("Coin Sürkülasyon Aralığı: ".$coinPurchase);
             LogHelper::orderLog("Coin Sürkülasyon Aralığı", $coinPurchase);
 
-            $binanceHelper =  new BinanceHelper($coinId);
+            $binanceHelper = new BinanceHelper($coinId);
             $whileCounter = 1;
             while(true){
                 $uniqueId = uniqid(rand(), true);
-                $this->info("");
+                /*$this->info("");
                 LogHelper::orderLog("","", $uniqueId);
 
                 $this->info($whileCounter."-SPOT ALGORITHM START: ". Carbon::now()->format("d.m.Y H:i:s"));
@@ -88,14 +88,56 @@ class Test extends Command
                 $this->info($whileCounter."-Komisyon: ". $fee);
                 LogHelper::orderLog("", $whileCounter."-Komisyon: ". $fee, $uniqueId);
 
+                //Cüzdan daki para bilgisi alınıyor
+                $walletCurrency = $binanceHelper->getWalletCurrency($currency);
 
+                //Test için en düşük 20 dolardan alım yapılabilir.
+                $walletCurrency = 160;
+                $this->info($whileCounter."-Cüzdandaki ".$currency.": ". $walletCurrency);
+                LogHelper::orderLog("",  $whileCounter."-Cüzdandaki ".$currency.": ". $walletCurrency, $uniqueId);
+
+
+                $this->info($whileCounter."-Stabiletesi kontrol ediliyor...");
+                LogHelper::orderLog("",$whileCounter."-Stabiletesi kontrol ediliyor...", $uniqueId);
+                $buyPrice = $binanceHelper->getPaymentCoinAmount($this, $spot, $coinPurchase, 30, true);
+
+                $this->info($whileCounter."-Stabiletesi bulunmuş Fiyat: ". $buyPrice);
+                LogHelper::orderLog("",$whileCounter."-Stabiletesi bulunmuş Fiyat: ". $buyPrice, $uniqueId);
+
+
+                $coinDigit = pow(10, $binanceHelper->getCoinPriceDigit($buyPrice)); //Coinin küsürat sayısının öğrenilmesi ve üstü alınarak sellPrice da düzeltme yapılması.
+
+
+                // ################## [KOMİSYON VE ALINACAK ADETIN BELİRLENMESİ BAŞLANGIÇ] ##################
+
+                $commissionPercent = $fee; //Binance Komisyon
+                $buyPiece = floor($walletCurrency / $buyPrice); //alınacak adet.
+
+                // ################## [KOMİSYON VE ALINACAK ADETIN BELİRLENMESİ BİTİŞ] ##################
+
+
+                // ############# [SATIN ALMA BAŞLANGIÇ] #############
+                $this->info($whileCounter."-Satın Alınacak Fiyat: ". $buyPrice);
+                LogHelper::orderLog("Satın Alma",$whileCounter."-Satın Alınacak Fiyat: ". $buyPrice, $uniqueId);
+                $this->info($whileCounter."-Satın Alınacak Adet: ". $buyPiece);
+                LogHelper::orderLog("Satın Alma",$whileCounter."-Satın Alınacak Adet: ". $buyPiece, $uniqueId);
+                $totalBuyPrice = $buyPrice * $buyPiece;
+                $this->info($whileCounter."-Satın Alımında Toplam Ödenecek ".$currency.": ". $totalBuyPrice);
+                LogHelper::orderLog("Satın Alma",$whileCounter."-Satın Alımında Toplam Ödenecek ".$currency.": ". $totalBuyPrice, $uniqueId);
+
+                $this->info($whileCounter."-Satın Alma Limiti Koyma = Başlatıldı!");
+                LogHelper::orderLog("Satın Alma Limit Koyma",$whileCounter."-Satın Alma Limiti Koyma = Başlatıldı!", $uniqueId);
+                */
+                $buyOrderId = $binanceHelper->buyCoin("XRPUSDT", 10, 0.50);
+
+                $this->info($whileCounter."-Satın Alma Limiti = Başarıyla Koyuldu!");
+                LogHelper::orderLog("Satın Alma Limit Koyma",$whileCounter."-Satın Alma Limiti = Başarıyla Koyuldu!", $uniqueId, $buyOrderId);
+
+
+                dd("okk");
             }
         }else{
             LogHelper::log(1, "", "Coin Select", "Coin bulunamadı!");
         }
-
-
-        $fee = $binanceHelper->getCommission(1,"BNBBUSD", $testStatus);
-        $this->info($fee);
     }
 }

@@ -6,6 +6,7 @@ use App\Models\Log;
 use App\Models\Order;
 use App\Models\OrderLog;
 use \Binance;
+use Carbon\Carbon;
 
 class BinanceHelper{
 
@@ -58,43 +59,46 @@ class BinanceHelper{
         }
     }
 
-    //Cüzdan daki dolar bilgisi alınıyor
-    public function getCurrency($coin_id){
-        try{
-            $ticker = $this->api->prices();
-            $balances = $this->api->balances($ticker)["USDT"]; //Array ( [available] => 0.07340000 [onOrder] => 100.00000000 [btcValue] => 0.00000170 [btcTotal] => 0.00232070 )
-            $walletDolar = $balances["available"]; //Cüzdanımda kalan DOLAR para birimi
-            return $walletDolar;
-        }catch (\Exception $e){
-            $log = new Log;
-            $log->type = 2;
-            $log->coin_id = $coin_id;
-            $log->title = "Balance API Error";
-            $log->description = "Cüzdan Dolar Bilgisi Alınamadı: ".$e->getMessage(). " Satır: ". $e->getLine();
-            $log->save();
-            return null;
+    //Cüzdan daki para bilgisinin alınması
+    public function getWalletCurrency($currency){
+        while(true){
+            try{
+                $ticker = $this->api->prices();
+                $balances = $this->api->balances($ticker)[$currency]; //Array ( [available] => 0.07340000 [onOrder] => 100.00000000 [btcValue] => 0.00000170 [btcTotal] => 0.00232070 )
+                return $balances["available"]; //Cüzdanımda kalan para birimi
+            }catch (\Exception $e){
+                $log = new Log;
+                $log->type = 2;
+                $log->coin_id = $this->coinId;
+                $log->title = "Balance API Error";
+                $log->description = "Cüzdan Para Bilgisi Alınamadı: ".$e->getMessage(). " Satır: ". $e->getLine();
+                $log->save();
+                sleep(5);
+            }
         }
-
     }
 
     //Alınacak coinin miktarın stabiletisini kontrol etme.
-    function getPaymentCoinAmount($coin_id, $coin_usd, $coin_purchase){
+    function getPaymentCoinAmount($context, $spot, $coinPurchase, $sensitivity, $test = false){
 
         $price = -1; //şu anda olan coin para birimi
         $priceUpLimit = -1; //şu anda olan coin biriminin sirkülasyon maks üst aralığı
         $priceDownLimit = -1; //şu anda olan coin biriminin sirkülasyon min alt aralığı
         $priceMaxMinStatus = false; // sirkülasyon aralığıbelirlenmiş mi ?
         $priceDiff = -1; //coin para briminin aralık farkının alınması
-        $buyPriceCount = 30; //her 1 saniye de 30 kere aynı para birim aralığındaysa limit emriyle satın alma işlemi gerçekleştirilecek.
+        $buyPriceCount = $sensitivity; //her 1 saniye de belirtlen X kere aynı para birim aralığındaysa limit emriyle satın alma işlemi gerçekleştirilecek.
         $buyPriceCounter = 0;
 
         while(true){
 
             try {
-                $price = floatval($this->api->price($coin_usd)); //örnek çıktı: 1.06735000
-
+                $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
+                if($test){ //hızlı test için stabilete ölcülmeden para birimi alınır.
+                    return $price;
+                }
+                $context->warn("Stabiletesi ölçülüyor # ".$spot.": ".$price. " # TARİH:". Carbon::now()->format("d.m.Y H:i:s"));
                 if($priceMaxMinStatus == false){
-                    $priceDiff = $price * $coin_purchase;
+                    $priceDiff = $price * $coinPurchase;
                     $priceUpLimit = $price + $priceDiff;
                     $priceDownLimit = $price - $priceDiff;
                     $priceMaxMinStatus = true;
@@ -111,15 +115,14 @@ class BinanceHelper{
                         }
                     }
                 }
-
             } catch (\Exception $e) {
                 $log = new Log;
                 $log->type = 2;
-                $log->coin_id = $coin_id;
+                $log->coin_id = $this->coinId;
                 $log->title = "Price Error";
                 $log->description = "Para Birimi Alınamadı. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
-                return null;
+                sleep(5);
             }
 
             sleep(1); // 1 saniye de 1 kere para birimini kontrol et.
@@ -127,43 +130,68 @@ class BinanceHelper{
     }
 
     //Satın alma limitinin eklenmesi.
-    function buyCoin($coin_id, $coin_usd, $buyPiece, $buyPrice){
+    function buyCoin($spot, $buyPiece, $buyPrice){
 
-        try{
-            $buyStatus = $this->api->buy($coin_usd, $buyPiece, $buyPrice); // {"symbol":"ADAUSDT","orderId":1128188745,"orderListId":-1,"clientOrderId":"2pOvnTiBwWlB0K4WfQMsMy","transactTime":1615919001851,"price":"1.00000000","origQty":"10.00000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","fills":[]} //////// NEW DATA
-            if(($buyStatus["status"] == "NEW" || $buyStatus["status"] == "FILLED") && $buyStatus["side"] == "BUY") { //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ? NEW = Sipariş motor tarafından kabul edildi & BUY satın alma olduğunda emin olmak için ek kontrol.
-                $order = new Order;
-                $order->coin_id = $coin_id;
-                $order->orderId = $buyStatus["orderId"];
-                $order->symbol = $coin_usd;
-                $order->side = $buyStatus["side"];
-                $order->origQty = $buyStatus["origQty"];
-                $order->price = $buyStatus["price"];
-                $order->type = $buyStatus["type"];
-                $order->status = $buyStatus["status"];
-                $order->var_piece = $buyPiece;
-                $order->var_price = $buyPrice;
-                $order->json_data = json_encode($buyStatus);
-                $order->save();
+        while(true){
+            //try{
+                /*
+                 {
+                   "symbol":"ADAUSDT",
+                   "orderId":1128188745,
+                   "orderListId":-1,
+                   "clientOrderId":"2pOvnTiBwWlB0K4WfQMsMy",
+                   "transactTime":1615919001851,
+                   "price":"1.00000000",
+                   "origQty":"10.00000000",
+                   "executedQty":"0.00000000",
+                   "cummulativeQuoteQty":"0.00000000",
+                   "status":"NEW",
+                   "timeInForce":"GTC",
+                   "type":"LIMIT",
+                   "side":"BUY",
+                   "fills":[]
+                }*/
+                $buyStatus = $this->api->buy($spot, $buyPiece, $buyPrice);
 
-                return $order->id;
-            }else{
+                dd($buyStatus);
+                //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ?
+                //NEW = Sipariş motor tarafından kabul edildi
+                //FILLED = İŞLEM TAMAMEN GERÇEKLEŞTİ!
+                //BUY satın alma olduğunda emin olmak için ek kontrol.
+                if(($buyStatus["status"] == "NEW" || $buyStatus["status"] == "FILLED") && $buyStatus["side"] == "BUY") {
+                    $order = new Order;
+                    $order->coin_id = $this->coinId;
+                    $order->orderId = $buyStatus["orderId"];
+                    $order->symbol = $spot;
+                    $order->side = $buyStatus["side"];
+                    $order->origQty = $buyStatus["origQty"];
+                    $order->price = $buyStatus["price"];
+                    $order->type = $buyStatus["type"];
+                    $order->status = $buyStatus["status"];
+                    $order->var_piece = $buyPiece;
+                    $order->var_price = $buyPrice;
+                    $order->json_data = json_encode($buyStatus);
+                    $order->save();
+
+                    return $order->id;
+                }else{
+                    $log = new Log;
+                    $log->type = 1;
+                    $log->coin_id = $this->coinId;
+                    $log->title = "buyCoin Status Error";
+                    $log->description = "Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus);
+                    $log->save();
+                    sleep(2);
+                }
+            /*} catch (\Exception $e) {
                 $log = new Log;
-                $log->type = 1;
-                $log->coin_id = $coin_id;
-                $log->title = "buyCoin Status Error";
-                $log->description = "Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus);
+                $log->type = 2;
+                $log->coin_id = $this->coinId;
+                $log->title = "buyCoin Limit Error";
+                $log->description = "Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
-                return null;
-            }
-        } catch (\Exception $e) {
-            $log = new Log;
-            $log->type = 2;
-            $log->coin_id = $coin_id;
-            $log->title = "buyCoin Limit Error";
-            $log->description = "Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-            $log->save();
-            return null;
+                sleep(5);
+            }*/
         }
     }
 
@@ -279,8 +307,8 @@ class BinanceHelper{
     }
 
 
-    function countDecimals($value) { //ondalıklı sayısı kaç adet varsa sayar ör: 1.23444 = 5 döner
-        $exp = explode(".", strval($value));
+    function getCoinPriceDigit($price) { //ondalıklı sayısı kaç adet varsa sayar ör: 1.23444 = 5 döner
+        $exp = explode(".", strval($price));
         if(count($exp) > 1){
             return strlen($exp[1]);
         }else{
@@ -289,7 +317,7 @@ class BinanceHelper{
     }
 
     // tüm para birimlerini alma
-    function getAllCoins(){
+    function getAllCoinPrices(){
         $ticker = $this->api->prices();
         return $ticker;
         //return print_r($ticker);
