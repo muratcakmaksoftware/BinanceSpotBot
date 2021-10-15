@@ -78,8 +78,18 @@ class BinanceHelper{
         }
     }
 
-    //Alınacak coinin miktarın stabiletisini kontrol etme.
-    function getPaymentCoinAmount($context, $spot, $coinPurchase, $sensitivity, $test = false){
+
+
+    /**
+     * Alınacak coinin miktarın stabiletisini kontrol etme.
+     * @param $context
+     * @param $spot
+     * @param $coinPurchase
+     * @param $sensitivity
+     * @param bool $test
+     * @return float
+     */
+    function getStabilizationPrice($context, $spot, $coinPurchase, $sensitivity, $test = false){
 
         $price = -1; //şu anda olan coin para birimi
         $priceUpLimit = -1; //şu anda olan coin biriminin sirkülasyon maks üst aralığı
@@ -129,11 +139,16 @@ class BinanceHelper{
         }
     }
 
-    //Satın alma limitinin eklenmesi.
+    /**
+     * Satın alma limitinin eklenmesi.
+     * @param $spot
+     * @param $buyPiece
+     * @param $buyPrice
+     * @return mixed
+     */
     function buyCoin($spot, $buyPiece, $buyPrice){
-
         while(true){
-            //try{
+            try{
                 /*
                  {
                    "symbol":"ADAUSDT",
@@ -153,7 +168,6 @@ class BinanceHelper{
                 }*/
                 $buyStatus = $this->api->buy($spot, $buyPiece, $buyPrice);
 
-                dd($buyStatus);
                 //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ?
                 //NEW = Sipariş motor tarafından kabul edildi
                 //FILLED = İŞLEM TAMAMEN GERÇEKLEŞTİ!
@@ -172,7 +186,6 @@ class BinanceHelper{
                     $order->var_price = $buyPrice;
                     $order->json_data = json_encode($buyStatus);
                     $order->save();
-
                     return $order->id;
                 }else{
                     $log = new Log;
@@ -183,7 +196,7 @@ class BinanceHelper{
                     $log->save();
                     sleep(2);
                 }
-            /*} catch (\Exception $e) {
+            } catch (\Exception $e) {
                 $log = new Log;
                 $log->type = 2;
                 $log->coin_id = $this->coinId;
@@ -191,80 +204,118 @@ class BinanceHelper{
                 $log->description = "Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
                 sleep(5);
-            }*/
+            }
         }
     }
 
-    //LİMİT EMRİ VERİLDİ VE LİMİT EMRİNİN GERÇEKLEŞMESİ BEKLENİYOR.
-    function getOrderStatus($coin_id, $coin_usd, $order){
-        try{
-            while(true){
-                $orderStatus = $this->api->orderStatus($coin_usd, $order->orderId);
-                if($orderStatus["status"] == "FILLED"){ //işlem gerçekleşmiş. filled = Sipariş tamamlandı /// $orderStatus["status"] == "CANCELED" sipariş iptal edildiyse
+    /**
+     * //LİMİT EMRİ VERİLDİ VE LİMİT EMRİNİN GERÇEKLEŞMESİ BEKLENİYOR.
+     * @param $spot
+     * @param $order
+     * @return bool
+     */
+    function getOrderStatus($spot, $order){
+        while(true) {
+            try{
+                $orderStatus = $this->api->orderStatus($spot, $order->orderId);
+                //işlem gerçekleşmiş. filled = Sipariş tamamlandı /// $orderStatus["status"] == "CANCELED" sipariş iptal edildiyse
+                if($orderStatus["status"] == "FILLED"){
                     $order->status = $orderStatus["status"];
                     $order->save();
                     return true; //işlem gerçekleşmiş.
                 }else{
                     sleep(2); // 2 saniye de 1 kere satın alınmış mı kontrolü
                 }
-            }
-        }catch (\Exception $e) {
-            $log = new Log;
-            $log->type = 2;
-            $log->coin_id = $coin_id;
-            $log->title = "Limit Status Error";
-            $log->description = "Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-            $log->save();
-            return false;
-        }
-
-    }
-
-    //Satış limitinin eklenmesi.
-    function sellCoin($coin_id, $coin_usd, $sellPiece, $sellPrice){
-
-        try{
-            $sellStatus = $this->api->sell($coin_usd, $sellPiece, $sellPrice); // {"symbol":"TRXUSDT","orderId":701099196,"orderListId":-1,"clientOrderId":"lk9pIK7dpR9TPBuo1uPkJx","transactTime":1615926174851,"price":"0.05800000","origQty":"500.00000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"SELL","fills":[]}
-            if(($sellStatus["status"] == "NEW" || $sellStatus["status"] == "FILLED") && $sellStatus["side"] == "SELL") { //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ? NEW = Sipariş motor tarafından kabul edildi & SELL satış olduğunda emin olmak için ek kontrol.
-                $order = new Order;
-                $order->coin_id = $coin_id;
-                $order->orderId = $sellStatus["orderId"];
-                $order->symbol = $coin_usd;
-                $order->side = $sellStatus["side"];
-                $order->origQty = $sellStatus["origQty"];
-                $order->price = $sellStatus["price"];
-                $order->type = $sellStatus["type"];
-                $order->status = $sellStatus["status"];
-                $order->var_piece = $sellPiece;
-                $order->var_price = $sellPrice;
-                $order->json_data = json_encode($sellStatus);
-                $order->save();
-
-                return $order->id;
-            }else{
+            }catch (\Exception $e) {
                 $log = new Log;
-                $log->type = 1;
-                $log->coin_id = $coin_id;
-                $log->title = "sellCoin Status Error";
-                $log->description = "Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus);
+                $log->type = 2;
+                $log->coin_id = $this->coinId;
+                $log->title = "Limit Status Error";
+                $log->description = "Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
-                return null;
+                sleep(5);
             }
-        } catch (\Exception $e) {
-            $log = new Log;
-            $log->type = 2;
-            $log->coin_id = $coin_id;
-            $log->title = "sellCoin Limit Error";
-            $log->description = "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-            $log->save();
-            return null;
         }
     }
 
-    //Örnek MATICTRY belirtilen spot birimine daha önceden emir verilmişse emir gerçekleşene kadar bekletir.
+    /**
+     * Satış limitinin eklenmesi.
+     * @param $spot
+     * @param $sellPiece
+     * @param $sellPrice
+     * @return mixed
+     */
+    function sellCoin($spot, $sellPiece, $sellPrice){
+        while(true){
+            try{
+                /*
+                 {
+                   "symbol":"TRXUSDT",
+                   "orderId":701099196,
+                   "orderListId":-1,
+                   "clientOrderId":"lk9pIK7dpR9TPBuo1uPkJx",
+                   "transactTime":1615926174851,
+                   "price":"0.05800000",
+                   "origQty":"500.00000000",
+                   "executedQty":"0.00000000",
+                   "cummulativeQuoteQty":"0.00000000",
+                   "status":"NEW",
+                   "timeInForce":"GTC",
+                   "type":"LIMIT",
+                   "side":"SELL",
+                   "fills":[]
+                }
+                 * */
+                $sellStatus = $this->api->sell($spot, $sellPiece, $sellPrice);
+                //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ?
+                // NEW = Sipariş motor tarafından kabul edildi &
+                // Filled = tamamı başarı olmuş mu ?
+                // SELL = satış olduğunda emin olmak için ek kontrol.
+                if(($sellStatus["status"] == "NEW" || $sellStatus["status"] == "FILLED") && $sellStatus["side"] == "SELL") {
+                    $order = new Order;
+                    $order->coin_id = $this->coinId;
+                    $order->orderId = $sellStatus["orderId"];
+                    $order->symbol = $spot;
+                    $order->side = $sellStatus["side"];
+                    $order->origQty = $sellStatus["origQty"];
+                    $order->price = $sellStatus["price"];
+                    $order->type = $sellStatus["type"];
+                    $order->status = $sellStatus["status"];
+                    $order->var_piece = $sellPiece;
+                    $order->var_price = $sellPrice;
+                    $order->json_data = json_encode($sellStatus);
+                    $order->save();
+
+                    return $order->id;
+                }else{
+                    $log = new Log;
+                    $log->type = 1;
+                    $log->coin_id = $this->coinId;
+                    $log->title = "sellCoin Status Error";
+                    $log->description = "Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus);
+                    $log->save();
+                    sleep(2);
+                }
+            } catch (\Exception $e) {
+                $log = new Log;
+                $log->type = 2;
+                $log->coin_id = $this->coinId;
+                $log->title = "sellCoin Limit Error";
+                $log->description = "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
+                $log->save();
+                sleep(5);
+            }
+        }
+    }
+
+    /**
+     * Örnek MATICTRY belirtilen spot birimine daha önceden emir verilmişse emir gerçekleşene kadar bekletir.
+     * @param $spot
+     * @return bool
+     */
     function waitOpenOrders($spot){
         while(true){
-            //try{
+            try{
                 /*
                  array:1 [
                       0 => array:18 [
@@ -297,17 +348,22 @@ class BinanceHelper{
                 }else{
                     return true; //limit emri bulunmadı.
                 }
-            /*}catch (\Exception $e) {
+            }catch (\Exception $e) {
                 LogHelper::log(2, $this->coinId, "Open Orders Bypass", "Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
-            }*/
+            }
 
         }
 
     }
 
 
-    function getCoinPriceDigit($price) { //ondalıklı sayısı kaç adet varsa sayar ör: 1.23444 = 5 döner
+    /**
+     * ondalıklı sayısı kaç adet varsa sayar ör: 1.23444 = 5 döner
+     * @param $price
+     * @return int
+     */
+    function getCoinPriceDigit($price) {
         $exp = explode(".", strval($price));
         if(count($exp) > 1){
             return strlen($exp[1]);
@@ -316,7 +372,13 @@ class BinanceHelper{
         }
     }
 
-    // tüm para birimlerini alma
+
+
+    /**
+     * tüm para birimlerini alma
+     * @return array
+     * @throws \Exception
+     */
     function getAllCoinPrices(){
         $ticker = $this->api->prices();
         return $ticker;
