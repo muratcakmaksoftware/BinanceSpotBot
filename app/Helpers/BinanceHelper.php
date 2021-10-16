@@ -12,8 +12,10 @@ class BinanceHelper{
 
     protected $api = null;
     protected $coinId = null;
-    function __construct($coin_id, $test = false){
+    protected $context = null;
+    function __construct($context, $coin_id, $test = false){
         $this->coinId = $coin_id;
+        $this->context = $context;
         if($test){
             //$this->api = new Binance\API("NE2zfaJ3DeUi3E8slgkRp8tuzBjsQIqGXOJKPUtSSNkn3YhzQ2WIazskyb20m8nI", "fMhRLVEPFYe510tl4eAeQqUjSLW4igAwyLqKgiLA8bCkdpCgnmMbM0oAXe9MT8T4", true);
         }else{
@@ -42,18 +44,20 @@ class BinanceHelper{
                     $log = new Log;
                     $log->type = 1;
                     $log->coin_id = $this->coinId;
-                    $log->title = "commissionFee 404";
-                    $log->description = "Response Failed!";
+                    $log->title = "Komisyon Bilgisi";
+                    $log->description = "Komisyon bilgisi alınamadı";
                     $log->save();
+                    $this->context->error("Komisyon bilgisi alınamadı");
                     sleep(2);
                 }
             }catch (\Exception $e){
                 $log = new Log;
                 $log->type = 2;
                 $log->coin_id = $this->coinId;
-                $log->title = "commissionFee API Error";
-                $log->description = $e->getMessage(). " Satır: ". $e->getLine();
+                $log->title = "Komisyon Bilgisi API Error";
+                $log->description = "Komisyon bilgisini alma api error: ".$e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
+                $this->context->error("Komisyon bilgisini alma api error: ".$e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
         }
@@ -64,7 +68,8 @@ class BinanceHelper{
         while(true){
             try{
                 $ticker = $this->api->prices();
-                $balances = $this->api->balances($ticker)[$currency]; //Array ( [available] => 0.07340000 [onOrder] => 100.00000000 [btcValue] => 0.00000170 [btcTotal] => 0.00232070 )
+                //Array ( [available] => 0.07340000 [onOrder] => 100.00000000 [btcValue] => 0.00000170 [btcTotal] => 0.00232070 )
+                $balances = $this->api->balances($ticker)[$currency];
                 return $balances["available"]; //Cüzdanımda kalan para birimi
             }catch (\Exception $e){
                 $log = new Log;
@@ -73,6 +78,7 @@ class BinanceHelper{
                 $log->title = "Balance API Error";
                 $log->description = "Cüzdan Para Bilgisi Alınamadı: ".$e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
+                $this->context->error("Cüzdan Para Bilgisi Alınamadı: ".$e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
         }
@@ -89,7 +95,7 @@ class BinanceHelper{
      * @param bool $test
      * @return float
      */
-    function getStabilizationPrice($context, $spot, $coinPurchase, $sensitivity, $test = false){
+    function getStabilizationPrice($spot, $coinPurchase, $sensitivity, $test = false){
 
         $price = -1; //şu anda olan coin para birimi
         $priceUpLimit = -1; //şu anda olan coin biriminin sirkülasyon maks üst aralığı
@@ -106,7 +112,7 @@ class BinanceHelper{
                 if($test){ //hızlı test için stabilete ölcülmeden para birimi alınır.
                     return $price;
                 }
-                $context->warn("Stabiletesi ölçülüyor # ".$spot.": ".$price. " # TARİH:". Carbon::now()->format("d.m.Y H:i:s"));
+                $this->context->warn("Stabiletesi ölçülüyor #   ".$spot.": ".$price. "   # ". Carbon::now()->format("d.m.Y H:i:s"));
                 if($priceMaxMinStatus == false){
                     $priceDiff = $price * $coinPurchase;
                     $priceUpLimit = $price + $priceDiff;
@@ -132,6 +138,7 @@ class BinanceHelper{
                 $log->title = "Price Error";
                 $log->description = "Para Birimi Alınamadı. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
+                $this->context->error("Para Birimi Alınamadı. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
 
@@ -151,13 +158,13 @@ class BinanceHelper{
             try{
                 /*
                  {
-                   "symbol":"ADAUSDT",
-                   "orderId":1128188745,
+                   "symbol":"MATICUSDT",
+                   "orderId":1153061591,
                    "orderListId":-1,
-                   "clientOrderId":"2pOvnTiBwWlB0K4WfQMsMy",
-                   "transactTime":1615919001851,
-                   "price":"1.00000000",
-                   "origQty":"10.00000000",
+                   "clientOrderId":"VMx9Mfac4ABbGCfDHuUXmz",
+                   "transactTime":1634406291074,
+                   "price":"1.50900000",
+                   "origQty":"13.00000000",
                    "executedQty":"0.00000000",
                    "cummulativeQuoteQty":"0.00000000",
                    "status":"NEW",
@@ -194,6 +201,7 @@ class BinanceHelper{
                     $log->title = "buyCoin Status Error";
                     $log->description = "Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus);
                     $log->save();
+                    $this->context->error("Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus));
                     sleep(2);
                 }
             } catch (\Exception $e) {
@@ -203,6 +211,7 @@ class BinanceHelper{
                 $log->title = "buyCoin Limit Error";
                 $log->description = "Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
+                $this->context->error("Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
         }
@@ -222,8 +231,10 @@ class BinanceHelper{
                 if($orderStatus["status"] == "FILLED"){
                     $order->status = $orderStatus["status"];
                     $order->save();
+                    $this->context->info($order->side." # ".$spot." # durumu ".$order->status." işlem başarıyla gerçekleşti!");
                     return true; //işlem gerçekleşmiş.
                 }else{
+                    $this->context->warn($order->side." # ".$spot." # durumu ".$order->status." işlemin gerçekleşmesi bekleniyor.");
                     sleep(2); // 2 saniye de 1 kere satın alınmış mı kontrolü
                 }
             }catch (\Exception $e) {
@@ -233,6 +244,7 @@ class BinanceHelper{
                 $log->title = "Limit Status Error";
                 $log->description = "Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
+                $this->context->error("Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
         }
@@ -250,13 +262,13 @@ class BinanceHelper{
             try{
                 /*
                  {
-                   "symbol":"TRXUSDT",
-                   "orderId":701099196,
+                   "symbol":"MATICUSDT",
+                   "orderId":1153061673,
                    "orderListId":-1,
-                   "clientOrderId":"lk9pIK7dpR9TPBuo1uPkJx",
-                   "transactTime":1615926174851,
-                   "price":"0.05800000",
-                   "origQty":"500.00000000",
+                   "clientOrderId":"NNLDOPoudQOWe2ThA4V76a",
+                   "transactTime":1634406294188,
+                   "price":"1.52100000",
+                   "origQty":"12.90000000",
                    "executedQty":"0.00000000",
                    "cummulativeQuoteQty":"0.00000000",
                    "status":"NEW",
@@ -264,8 +276,7 @@ class BinanceHelper{
                    "type":"LIMIT",
                    "side":"SELL",
                    "fills":[]
-                }
-                 * */
+                 }*/
                 $sellStatus = $this->api->sell($spot, $sellPiece, $sellPrice);
                 //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ?
                 // NEW = Sipariş motor tarafından kabul edildi &
@@ -294,6 +305,7 @@ class BinanceHelper{
                     $log->title = "sellCoin Status Error";
                     $log->description = "Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus);
                     $log->save();
+                    $this->context->error("Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus));
                     sleep(2);
                 }
             } catch (\Exception $e) {
@@ -303,6 +315,7 @@ class BinanceHelper{
                 $log->title = "sellCoin Limit Error";
                 $log->description = "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
                 $log->save();
+                $this->context->error("Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
         }
@@ -344,12 +357,14 @@ class BinanceHelper{
                 $openorders = $this->api->openOrders($spot);
                 if(count($openorders) > 0){ //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
                     // limitin gerçekleşmesi bekleniyor.
+                    $this->context->warn("Önceden koyulmuş limitin gerçekleşmesi bekleniyor. ". Carbon::now()->format("d.m.Y H:i:s"));
                     sleep(2);
                 }else{
                     return true; //limit emri bulunmadı.
                 }
             }catch (\Exception $e) {
                 LogHelper::log(2, $this->coinId, "Open Orders Bypass", "Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
+                $this->context->error("Daha önceden limit var mı kontrolü başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
 

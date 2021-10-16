@@ -17,7 +17,7 @@
 			var commissionPercent = 0.001; //komisyon %0.1
 			var wallet = 20; // Kasa $
 			var profit = 0.008; // Her alım için kar // birim cent
-			var buyPrice = 1.27355; //coin fiyatı
+			var buyPrice = 1.509; //coin fiyatı
 			var buyPiece = Math.floor(wallet / buyPrice); //alınacak adet.
             var coin_digit = Math.pow(10, countDecimals(buyPrice));
 
@@ -55,8 +55,8 @@
 
 			//Satış miktarının belirlenmesi.
                             // (alım miktar + kar artım )
-            var tolerance = 0.002;
-			var sellPrice = (parseFloat(buyPrice) + parseFloat(profit)) + tolerance; //Komisyonsuz eklenmemiş karlı satış rakamı
+            //var tolerance = 0.002;
+			var sellPrice = (parseFloat(buyPrice) + parseFloat(profit)); // + tolerance; //Komisyonsuz eklenmemiş karlı satış rakamı
             //var sellPriceFix = parseFloat(buyPrice * profit);
             //console.log(sellPriceFix);
             //Satışta kesilecek komisyon bilgisi
@@ -79,10 +79,10 @@
 
             console.log("Toplam Kâr: "+ parseFloat((parseFloat(sellPrice) - parseFloat(buyPrice)) - parseFloat(totalCommission)).toFixed(8));
 
-            var sellDolar = sellPrice * sellPiece;
-            console.log("Cüzdana Dönen Dolar: "+ sellDolar.toFixed(8));
+            var totalSellPrice = parseFloat(sellPrice * sellPiece) - parseFloat(sellCommissionPrice * sellPiece)
+            console.log("Cüzdana Dönen Dolar: "+ totalSellPrice.toFixed(8));
 
-            var gain = sellDolar - buyDolar
+            var gain = totalSellPrice - ((buyPrice * buyPiece) - (buyCommissionPrice * buyPiece))
             console.log("Cüzdana Kazanç: "+ gain.toFixed(8));
 
             //var earnMoney = (sellPrice * sellPiece); //satış gerçekleşirse kazanılacak miktar
