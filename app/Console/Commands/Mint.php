@@ -79,6 +79,7 @@ class Mint extends Command
                 //Limit parası cüzdandaki paradan büyük mü ?
                 if($maxWalletPriceLimit > $walletCurrency){
                     $this->error($whileCounter."-Belirlediğiniz limit: ".$maxWalletPriceLimit." ".$currency." cüzdan miktarından küçük olmalıdır. Cüzdan Miktarınız: ". $walletCurrency. " ".$currency);
+                    LogHelper::orderLog("Cüzdan Limit Sorunu",$whileCounter."-Belirlediğiniz limit: ".$maxWalletPriceLimit." ".$currency." cüzdan miktarından küçük olmalıdır. Cüzdan Miktarınız: ". $walletCurrency. " ".$currency, $uniqueId);
                     break;
                 }
 
