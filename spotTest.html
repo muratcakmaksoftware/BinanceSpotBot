@@ -15,9 +15,9 @@
             }
 
 			var commissionPercent = 0.001; //komisyon %0.1
-			var wallet = 20; // Kasa $
+			var wallet = 100; // Kasa $
 			var profit = 0.008; // Her alım için kar // birim cent
-			var buyPrice = 1.509; //coin fiyatı
+			var buyPrice = 1.497; //coin fiyatı
 			var buyPiece = Math.floor(wallet / buyPrice); //alınacak adet.
             var coin_digit = Math.pow(10, countDecimals(buyPrice));
 
@@ -66,24 +66,38 @@
 				0,0587266 * 0,188 = 0,0110406008 // komisyon kesilen coinin toplam dolar karşılığı.
 				0,0110406008 / 0,188 = 0,0587266 // coin başına alınan komisyon dolar bilgisi.
 			*/
-
+			
             var sellCommissionPrice = (sellPrice * (sellPiece * commissionPercent)) / sellPiece; //satışta kesilecek olan adet başına komisyon doları
             var totalCommission = parseFloat(buyCommissionPrice) + parseFloat(sellCommissionPrice); //Satın alım komisyon toplamı ve satışta alacak komisyon toplamı
-            console.log("Her alım adeti için ödenen komisyon: "+parseFloat(buyCommissionPrice).toFixed(8));
-            console.log("Her satım adeti için ödenen komisyon: "+parseFloat(sellCommissionPrice).toFixed(8));
-            console.log("Toplam Ödenen komisyon: "+ parseFloat(totalCommission).toFixed(8));
+            console.log("Her alım adeti için ödenen komisyon: $ "+parseFloat(buyCommissionPrice).toFixed(8));
+            console.log("Her satım adeti için ödenen komisyon: $ "+parseFloat(sellCommissionPrice).toFixed(8));
+            console.log("Her alım ve satım adeti için toplam Ödenen komisyon: $ "+ parseFloat(totalCommission).toFixed(8));
 
-            sellPrice = parseFloat(sellPrice) + parseFloat(totalCommission);
+            //sellPrice = parseFloat(sellPrice) + parseFloat(totalCommission);
             sellPrice = Math.ceil(sellPrice * coin_digit) / coin_digit;
             console.log("Kârlı Satış Fiyatı: "+sellPrice);
 
-            console.log("Toplam Kâr: "+ parseFloat((parseFloat(sellPrice) - parseFloat(buyPrice)) - parseFloat(totalCommission)).toFixed(8));
+			var totalBuyPrice = buyPrice * buyPiece;
+			var totalSellPrice = sellPrice * sellPiece;
+
+			var totalComissionBuyPrice = buyCommissionPrice * buyPiece;
+			var totalComissionSellPrice = sellCommissionPrice * sellPiece;
+			
+			console.log("Alım için Ödenen Toplam Dolar: "+ totalBuyPrice);
+			console.log("Alım için Ödenen Toplam Komisyon Doları: "+ totalComissionBuyPrice);
+			
+			console.log("Satım için Ödenen Toplam Dolar: "+ totalSellPrice);
+			console.log("Satım için Toplam Ödenen Komisyon Doları: "+ totalComissionSellPrice);
+
+			console.log("Toplam Kâr: "+ parseFloat((totalSellPrice - totalBuyPrice) - (totalComissionSellPrice + totalComissionBuyPrice)));
+
+            /*console.log("Toplam Kâr: "+ parseFloat((parseFloat(sellPrice) - parseFloat(buyPrice)) - parseFloat(totalCommission)).toFixed(8));
 
             var totalSellPrice = parseFloat(sellPrice * sellPiece) - parseFloat(sellCommissionPrice * sellPiece)
             console.log("Cüzdana Dönen Dolar: "+ totalSellPrice.toFixed(8));
 
-            var gain = totalSellPrice - ((buyPrice * buyPiece) - (buyCommissionPrice * buyPiece))
-            console.log("Cüzdana Kazanç: "+ gain.toFixed(8));
+            var gain = totalSellPrice - (buyPrice * buyPiece)
+            console.log("Cüzdana Kazanç: "+ gain.toFixed(8));*/
 
             //var earnMoney = (sellPrice * sellPiece); //satış gerçekleşirse kazanılacak miktar
             //console.log("Satışta kazanılacak toplam: $"+earnMoney.toFixed(8));

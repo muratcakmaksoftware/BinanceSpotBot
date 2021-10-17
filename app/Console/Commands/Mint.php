@@ -130,6 +130,10 @@ class Mint extends Command
                 LogHelper::orderLog("Satın Alma Limit",$whileCounter."-Satın Alma Limitinin gerçekleşmesi bekleniyor...", $uniqueId, $buyOrderId);
 
                 $buyOrder = Order::where("id", $buyOrderId)->first();
+                //Satın almada toplam total kaydedilmesi.
+                $buyOrder->total = $totalBuyPrice;
+                $buyOrder->save();
+
                 $binanceHelper->getOrderStatus($spot, $buyOrder);
 
                 $this->info($whileCounter."-Satın Alma Limiti Başarıyla Gerçekleşti!");
@@ -153,7 +157,6 @@ class Mint extends Command
                 $buyCommissionPrice = (($buyPrice * $buyPieceCommission) / $buyPiece);
                 $this->info($whileCounter."-Adet başına kesilen komisyon ".$currency.": ". $buyCommissionPrice);
                 LogHelper::orderLog("Satın Alım Komisyon",$whileCounter."-Adet başına kesilen komisyon ".$currency.": ". $buyCommissionPrice, $uniqueId, $buyOrderId);
-
                 $sellPiece = $buyPiece - $buyPieceCommission; //satış için KALAN ADET
                 $sellPiece = floor($sellPiece * 10) / 10; // satış için basamak düzeltme. ör: 10.989 => 10.9
                 $this->info($whileCounter."-Satın aldıktan sonra komisyon adetten düşmüş ve satış için kalan adet: ". $sellPiece);
@@ -181,7 +184,7 @@ class Mint extends Command
                 LogHelper::orderLog("Komisyon Analiz",$whileCounter."-Her alım+satım adeti için toplam ödenen komisyon: ".$currency." ". $totalCommission, $uniqueId);
 
                 //###### SATIŞ LİMİT FİYATININ BELİRLENMESİ ######
-                $sellPrice = $sellPrice + $totalCommission;
+                //$sellPrice = $sellPrice + $totalCommission;
                 $sellPrice = ceil($sellPrice * $coinDigit) / $coinDigit; //kusurat duzeltme örn: 1.2359069 => 1.23591
 
                 // ############# [SATIŞ BİLGİLERİNİN HESAPLANMA İŞLEMLERİ BİTİŞ] #############
@@ -205,8 +208,38 @@ class Mint extends Command
 
                 $sellOrder = Order::where("id", $sellOrderId)->first();
 
+                $totalSellPrice = $sellPrice * $sellPiece;
+
+                //Satışta harcanan total miktarın alınması.
+                $sellOrder->total = $totalSellPrice;
+                $sellOrder->save();
+
+                //Satın Alımında Ödenen Toplam komisyon dolarının kaydedilmesi.
+                $buyOrder->fee = ($buyCommissionPrice * $buyPiece);
+                $buyOrder->save();
+
+                //Satışta Ödenen Toplam komisyon dolarının kaydedilmesi.
+                $sellOrder->fee = ($sellCommissionPrice * $sellPiece);
+                $sellOrder->save();
+
+                //Ön Analiz Bilgilerinin Basılması
+                $this->info($whileCounter."-Alımda ödenen ".$currency.": ". $buyOrder->total);
+                LogHelper::orderLog("Alımda Ödenen",$whileCounter."-Alımda ödenen ".$currency.": ". $buyOrder->total, $uniqueId);
+
+                $this->info($whileCounter."-Alımda Ödenen Toplam Komisyon ".$currency.": ". $buyOrder->fee);
+                LogHelper::orderLog("Alımda Ödenen",$whileCounter."-Alımda Ödenen Toplam Komisyon ".$currency.": ". $buyOrder->fee, $uniqueId);
+
+                $this->info($whileCounter."-Satımda Ödenen ".$currency.": ". $sellOrder->total);
+                LogHelper::orderLog("Satımda Ödenen",$whileCounter."-Satımda Ödenen ".$currency.": ". $sellOrder->total, $uniqueId);
+
+                $this->info($whileCounter."-Satımda Ödenen Toplam Komisyon ".$currency.": ". $sellOrder->fee);
+                LogHelper::orderLog("Satımda Ödenen",$whileCounter."-Satımda Ödenen Toplam Komisyon ".$currency.": ". $sellOrder->fee, $uniqueId);
+
                 $this->info($whileCounter."-Satış işleminin gerçekleşmesi bekleniyor...");
                 LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış işleminin gerçekleşmesi bekleniyor...", $uniqueId, $sellOrderId);
+
+                $this->info($whileCounter."-Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)));
+                LogHelper::orderLog("Toplam Kâr",$whileCounter."-Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)), $uniqueId);
 
                 //Satın alma limiti gerçekleşmiş mi ?
                 $binanceHelper->getOrderStatus($spot, $sellOrder);
@@ -216,9 +249,11 @@ class Mint extends Command
 
                 // ################## [SATIŞ YAPMA BİTİŞ] ##################
 
+                /*
                 //Kar analiz
                 $this->info($whileCounter."-Toplam Kâr: ". floatval(($sellPrice - $buyPrice) - $totalCommission));
                 LogHelper::orderLog("Kâr",$whileCounter."-Toplam Kâr: ". floatval(($sellPrice - $buyPrice) - $totalCommission), $uniqueId);
+
 
                 //(satış fiyati * satış adeti) - (satış komisyon fiyatı * satış adeti)
                 $totalSellPrice = ($sellPrice * $sellPiece) - ($sellCommissionPrice * $sellPiece);
@@ -228,7 +263,7 @@ class Mint extends Command
                 //satıştan sonra cüzdanda kalan para - alımdan sonra komisyon düşümüyle kalan fiyat
                 $gain = $totalSellPrice - (($buyPrice * $buyPiece) - ($buyCommissionPrice * $buyPiece));
                 $this->info($whileCounter."-Cüzdana Kazanç: ". $gain);
-                LogHelper::orderLog("",$whileCounter."-Cüzdana Kazanç: ". $gain, $uniqueId);
+                LogHelper::orderLog("",$whileCounter."-Cüzdana Kazanç: ". $gain, $uniqueId);*/
 
                 $this->info($whileCounter."-SPOT ALGORITHM END: ".Carbon::now()->format("d.m.Y H:i:s"));
                 LogHelper::orderLog("", $whileCounter."-SPOT ALGORITHM END: ".Carbon::now()->format("d.m.Y H:i:s"), $uniqueId);
