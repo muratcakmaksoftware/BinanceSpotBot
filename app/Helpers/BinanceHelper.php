@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderLog;
 use \Binance;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class BinanceHelper{
 
@@ -228,13 +229,14 @@ class BinanceHelper{
             try{
                 $orderStatus = $this->api->orderStatus($spot, $order->orderId);
                 //işlem gerçekleşmiş. filled = Sipariş tamamlandı /// $orderStatus["status"] == "CANCELED" sipariş iptal edildiyse
+                $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
                 if($orderStatus["status"] == "FILLED"){
                     $order->status = $orderStatus["status"];
                     $order->save();
-                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # işlem başarıyla gerçekleşti! # ". Carbon::now()->format("d.m.Y H:i:s"));
+                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".self::clearLastZeros($order->price)." >= ".$price." # işlem başarıyla gerçekleşti! # ". Carbon::now()->format("d.m.Y H:i:s"));
                     return true; //işlem gerçekleşmiş.
                 }else{
-                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # işlemin gerçekleşmesi bekleniyor. # ". Carbon::now()->format("d.m.Y H:i:s"));
+                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".self::clearLastZeros($order->price)." >= ".$price." # işlemin gerçekleşmesi bekleniyor. # ". Carbon::now()->format("d.m.Y H:i:s"));
                     sleep(2); // 2 saniye de 1 kere satın alınmış mı kontrolü
                 }
             }catch (\Exception $e) {
@@ -387,8 +389,6 @@ class BinanceHelper{
         }
     }
 
-
-
     /**
      * tüm para birimlerini alma
      * @return array
@@ -400,4 +400,7 @@ class BinanceHelper{
         //return print_r($ticker);
     }
 
+    function clearLastZeros($value){
+        return Str::replaceLast("0","",$value);
+    }
 }

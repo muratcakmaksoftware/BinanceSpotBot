@@ -27,7 +27,7 @@ class Mint extends Command
         $coinName = strtoupper($this->argument("coin")); //Ex: MATIC
         $currency = strtoupper($this->argument("currency")); //Ex: TRY
         $maxWalletPriceLimit = intval($this->argument("maxWalletPriceLimit")); //Ex: $20 cüzdandaki kullanılacak para miktarı.
-
+        $stabilizationSensitivity = 30;
         $coin = Coin::where("name", $coinName)->first();
         if(isset($coin)){
             $coinId = $coin->id;
@@ -95,7 +95,7 @@ class Mint extends Command
                 $this->info($whileCounter."-Stabiletesi kontrol ediliyor...");
                 LogHelper::orderLog("",$whileCounter."-Stabiletesi kontrol ediliyor...", $uniqueId);
 
-                $buyPrice = $binanceHelper->getStabilizationPrice($spot, $coinPurchase, 30, $test); //stabil fiyat alınıyor
+                $buyPrice = $binanceHelper->getStabilizationPrice($spot, $coinPurchase, $stabilizationSensitivity, $test); //stabil fiyat alınıyor
                 $this->info($whileCounter."-Stabiletesi bulunmuş Fiyat: ". $buyPrice);
                 LogHelper::orderLog("",$whileCounter."-Stabiletesi bulunmuş Fiyat: ". $buyPrice, $uniqueId);
 
@@ -239,8 +239,8 @@ class Mint extends Command
                 $this->info($whileCounter."-Satış işleminin gerçekleşmesi bekleniyor...");
                 LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış işleminin gerçekleşmesi bekleniyor...", $uniqueId, $sellOrderId);
 
-                $this->info($whileCounter."-Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)));
-                LogHelper::orderLog("Toplam Kâr",$whileCounter."-Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)), $uniqueId);
+                $this->info($whileCounter."-Satışta Gerçekleşecek Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)));
+                LogHelper::orderLog("Satışta Gerçekleşecek Toplam Kâr",$whileCounter."-Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)), $uniqueId);
 
                 //Satın alma limiti gerçekleşmiş mi ?
                 $binanceHelper->getOrderStatus($spot, $sellOrder);
