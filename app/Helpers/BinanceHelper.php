@@ -233,10 +233,10 @@ class BinanceHelper{
                 if($orderStatus["status"] == "FILLED"){
                     $order->status = $orderStatus["status"];
                     $order->save();
-                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".self::clearLastZeros($order->price)." >= ".$price." # işlem başarıyla gerçekleşti! # ". Carbon::now()->format("d.m.Y H:i:s"));
+                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".floatval($order->price)." >= ".$price." # işlem başarıyla gerçekleşti! # ". Carbon::now()->format("d.m.Y H:i:s"));
                     return true; //işlem gerçekleşmiş.
                 }else{
-                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".self::clearLastZeros($order->price)." >= ".$price." # işlemin gerçekleşmesi bekleniyor. # ". Carbon::now()->format("d.m.Y H:i:s"));
+                    $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".floatval($order->price)." >= ".$price." # işlemin gerçekleşmesi bekleniyor. # ". Carbon::now()->format("d.m.Y H:i:s"));
                     sleep(2); // 2 saniye de 1 kere satın alınmış mı kontrolü
                 }
             }catch (\Exception $e) {
