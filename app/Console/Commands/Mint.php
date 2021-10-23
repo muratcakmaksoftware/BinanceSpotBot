@@ -27,7 +27,7 @@ class Mint extends Command
         $coinName = strtoupper($this->argument("coin")); //Ex: MATIC
         $currency = strtoupper($this->argument("currency")); //Ex: TRY
         $maxWalletPriceLimit = intval($this->argument("maxWalletPriceLimit")); //Ex: $20 cüzdandaki kullanılacak para miktarı.
-        $stabilizationSensitivity = 30;
+        $stabilizationSensitivity = 40;
         $coin = Coin::where("name", $coinName)->first();
         if(isset($coin)){
             $coinId = $coin->id;

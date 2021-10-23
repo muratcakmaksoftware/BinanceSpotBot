@@ -110,22 +110,32 @@ class BinanceHelper{
 
             try {
                 $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
-                if($test){ //hızlı test için stabilete ölcülmeden para birimi alınır.
+                if($test){ //hızlı test için stabilite ölcülmeden para birimi alınır.
                     return $price;
                 }
-                $this->context->warn("Stabiletesi ölçülüyor #   ".$spot.": ".$price. "   # ". Carbon::now()->format("d.m.Y H:i:s"));
+
                 if($priceMaxMinStatus == false){
                     $priceDiff = $price * $coinPurchase;
                     $priceUpLimit = $price + $priceDiff;
                     $priceDownLimit = $price - $priceDiff;
                     $priceMaxMinStatus = true;
+                    $this->context->info("----------------------");
+                    $this->context->info("Ölçülen Fiyat: ". $price);
+                    $this->context->info("Max Fiyat Aralığı: ". $priceUpLimit);
+                    $this->context->info("Min Fiyat Aralığı: ". $priceDownLimit);
+                    $this->context->info("Max-Min Farkı: ". $priceDiff);
+                    $this->context->info("----------------------");
                 }else{
+                    $this->context->warn($buyPriceCounter.". Stabilitesi ölçülüyor #   ".$spot.": ".$price. "   # ".$buyPriceCounter." == ".$buyPriceCount." # ". Carbon::now()->format("d.m.Y H:i:s"));
                     if($price > $priceUpLimit){ //max değeri aşılmış
                         $priceMaxMinStatus = false; //tekrardan min ve maks değeri belirle
+                        $buyPriceCounter = 0;
                     }else if($priceDownLimit > $price){ //min değeri aşılmış
                         $priceMaxMinStatus = false; //tekrardan min ve maks değeri belirle
+                        $buyPriceCounter = 0;
                     }else{ //Belirtilen min maks değerinin içerisinde
                         if($buyPriceCounter == $buyPriceCount){ //aralık aynı seyirde devam ettiyse girer.
+                            $this->context->warn("Stabilitesi Bulundu: ". $price);
                             return $price; //alınacak para birimi belirlendi döngü sonlandırıldı.
                         }else{
                             $buyPriceCounter++;
