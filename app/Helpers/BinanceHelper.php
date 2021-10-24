@@ -15,7 +15,7 @@ class BinanceHelper{
     protected $coinId = null;
     protected $context = null;
     public $uniqueId = -1;
-    protected $lossTolerance = 0.035; //%35 Kayıp toleransı
+    protected $lossTolerance = 0.022; //%22 Kayıp toleransı
     function __construct($context, $coin_id, $test = false){
         $this->coinId = $coin_id;
         $this->context = $context;
