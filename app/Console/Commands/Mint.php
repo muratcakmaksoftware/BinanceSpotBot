@@ -57,6 +57,7 @@ class Mint extends Command
             $whileCounter = 1;
             while(true){
                 $uniqueId = uniqid(rand(), true);
+                $binanceHelper->uniqueId = $uniqueId;
                 $this->info("-------------------------------");
                 LogHelper::orderLog("","-------------------------------", $uniqueId);
 
@@ -242,11 +243,17 @@ class Mint extends Command
                 $this->info($whileCounter."-Satışta Gerçekleşecek Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)));
                 LogHelper::orderLog("Satışta Gerçekleşecek Toplam Kâr",$whileCounter."-Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)), $uniqueId);
 
-                //Satın alma limiti gerçekleşmiş mi ?
-                $binanceHelper->getOrderStatus($spot, $sellOrder);
-
-                $this->info($whileCounter."-Satın Limiti Başarıyla Gerçekleşti!");
-                LogHelper::orderLog("Satış Yapma",$whileCounter."-Satın Limiti Başarıyla Gerçekleşti!", $uniqueId, $sellOrderId);
+                //Satış limiti gerçekleşmiş mi ?
+                if($binanceHelper->getOrderStatus($spot, $sellOrder)){
+                    $this->info($whileCounter."-Satış Limiti Başarıyla Gerçekleşti!");
+                    LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış Limiti Başarıyla Gerçekleşti!", $uniqueId, $sellOrderId);
+                }else{
+                    $this->info($whileCounter."-Satış Limiti İptal Ediliyor!");
+                    LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış Limiti İptal Ediliyor!", $uniqueId, $sellOrderId);
+                    $binanceHelper->orderCancel($sellOrder);
+                    $this->info($whileCounter."-Satış Limiti Başarıyla İptal Edildi!");
+                    LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış Limiti İptal Ediliyor!", $uniqueId, $sellOrderId);
+                }
 
                 // ################## [SATIŞ YAPMA BİTİŞ] ##################
 

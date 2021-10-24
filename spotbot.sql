@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: 127.0.0.1
--- Üretim Zamanı: 21 Eki 2021, 21:52:38
+-- Üretim Zamanı: 24 Eki 2021, 17:25:17
 -- Sunucu sürümü: 10.4.17-MariaDB
 -- PHP Sürümü: 7.3.27
 
@@ -38,12 +38,12 @@ CREATE TABLE `coins` (
 --
 
 INSERT INTO `coins` (`id`, `name`, `profit`, `purchase`) VALUES
-(1, 'ADA', '0.00800', '0.00400'),
+(1, 'ADA', '0.00850', '0.00150'),
 (2, 'TRX', '0.00800', '0.00400'),
 (3, 'DOGE', '0.00010', '0.00400'),
 (4, 'VET', '0.00800', '0.00400'),
 (5, 'XRP', '0.00800', '0.00400'),
-(6, 'MATIC', '0.00700', '0.00400');
+(6, 'MATIC', '0.00700', '0.00150');
 
 -- --------------------------------------------------------
 
@@ -69,6 +69,7 @@ CREATE TABLE `logs` (
 
 CREATE TABLE `orders` (
   `id` bigint(11) NOT NULL,
+  `unique_id` varchar(255) NOT NULL,
   `coin_id` int(11) NOT NULL,
   `orderId` bigint(20) NOT NULL,
   `symbol` varchar(255) NOT NULL,
@@ -150,13 +151,13 @@ ALTER TABLE `logs`
 -- Tablo için AUTO_INCREMENT değeri `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
+  MODIFY `id` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_logs`
 --
 ALTER TABLE `order_logs`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1653;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2208;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

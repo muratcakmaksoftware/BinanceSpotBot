@@ -14,6 +14,8 @@ class BinanceHelper{
     protected $api = null;
     protected $coinId = null;
     protected $context = null;
+    public $uniqueId = -1;
+    protected $lossTolerance = 0.035; //%35 Kayıp toleransı
     function __construct($context, $coin_id, $test = false){
         $this->coinId = $coin_id;
         $this->context = $context;
@@ -42,22 +44,12 @@ class BinanceHelper{
                 if(isset($fee[0]["makerCommission"])){
                     return $fee[0]["makerCommission"];
                 }else{
-                    $log = new Log;
-                    $log->type = 1;
-                    $log->coin_id = $this->coinId;
-                    $log->title = "Komisyon Bilgisi";
-                    $log->description = "Komisyon bilgisi alınamadı";
-                    $log->save();
+                    LogHelper::log(1, $this->coinId, "Komisyon Bilgisi", "Komisyon bilgisi alınamadı". json_encode($fee));
                     $this->context->error("Komisyon bilgisi alınamadı");
                     sleep(2);
                 }
             }catch (\Exception $e){
-                $log = new Log;
-                $log->type = 2;
-                $log->coin_id = $this->coinId;
-                $log->title = "Komisyon Bilgisi API Error";
-                $log->description = "Komisyon bilgisini alma api error: ".$e->getMessage(). " Satır: ". $e->getLine();
-                $log->save();
+                LogHelper::log(2, $this->coinId, "Komisyon Bilgisi API Error", "Komisyon bilgisini alma api error: ". $e->getMessage(). " Satır: ". $e->getLine());
                 $this->context->error("Komisyon bilgisini alma api error: ".$e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
@@ -73,12 +65,7 @@ class BinanceHelper{
                 $balances = $this->api->balances($ticker)[$currency];
                 return $balances["available"]; //Cüzdanımda kalan para birimi
             }catch (\Exception $e){
-                $log = new Log;
-                $log->type = 2;
-                $log->coin_id = $this->coinId;
-                $log->title = "Balance API Error";
-                $log->description = "Cüzdan Para Bilgisi Alınamadı: ".$e->getMessage(). " Satır: ". $e->getLine();
-                $log->save();
+                LogHelper::log(2, $this->coinId, "Balance API Error", "Cüzdan Para Bilgisi Alınamadı: ". $e->getMessage(). " Satır: ". $e->getLine());
                 $this->context->error("Cüzdan Para Bilgisi Alınamadı: ".$e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
@@ -143,12 +130,7 @@ class BinanceHelper{
                     }
                 }
             } catch (\Exception $e) {
-                $log = new Log;
-                $log->type = 2;
-                $log->coin_id = $this->coinId;
-                $log->title = "Price Error";
-                $log->description = "Para Birimi Alınamadı. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-                $log->save();
+                LogHelper::log(2, $this->coinId, "Price Error", "Para Birimi Alınamadı. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 $this->context->error("Para Birimi Alınamadı. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
@@ -192,6 +174,7 @@ class BinanceHelper{
                 //BUY satın alma olduğunda emin olmak için ek kontrol.
                 if(($buyStatus["status"] == "NEW" || $buyStatus["status"] == "FILLED") && $buyStatus["side"] == "BUY") {
                     $order = new Order;
+                    $order->unique_id = $this->uniqueId;
                     $order->coin_id = $this->coinId;
                     $order->orderId = $buyStatus["orderId"];
                     $order->symbol = $spot;
@@ -206,22 +189,12 @@ class BinanceHelper{
                     $order->save();
                     return $order->id;
                 }else{
-                    $log = new Log;
-                    $log->type = 1;
-                    $log->coin_id = $this->coinId;
-                    $log->title = "buyCoin Status Error";
-                    $log->description = "Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus);
-                    $log->save();
+                    LogHelper::log(1, $this->coinId, "buyCoin Status Error", "Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus));
                     $this->context->error("Satın alma limit farklı status değerine sahip. Data: ". json_encode($buyStatus));
                     sleep(2);
                 }
             } catch (\Exception $e) {
-                $log = new Log;
-                $log->type = 2;
-                $log->coin_id = $this->coinId;
-                $log->title = "buyCoin Limit Error";
-                $log->description = "Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-                $log->save();
+                LogHelper::log(2, $this->coinId, "buyCoin Limit Error", "Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 $this->context->error("Satın Alma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
@@ -235,11 +208,26 @@ class BinanceHelper{
      * @return bool
      */
     function getOrderStatus($spot, $order){
+        $orderBuy = Order::where("unique_id", $order->unique_id)->where("side", "BUY")->first();
         while(true) {
             try{
                 $orderStatus = $this->api->orderStatus($spot, $order->orderId);
                 //işlem gerçekleşmiş. filled = Sipariş tamamlandı /// $orderStatus["status"] == "CANCELED" sipariş iptal edildiyse
                 $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
+
+                //STOP-LIMIT Kontrolü
+                if($order->side == "SELL"){
+                    if(isset($orderBuy)){
+                        $orderBuyPrice = floatval($orderBuy->price);
+                        $tolerancePrice = $orderBuyPrice * $this->lossTolerance; // 1.60 * 0.04 = 0.056
+                        $lossPriceLimit = $orderBuyPrice - $tolerancePrice; // 1.60 - 0.056 = 1.544
+                        if($lossPriceLimit > $price){ // kayıp limit para birimi güncel para biriminden büyükse önceki limiti iptal edip zarar satış yapar.
+                            $this->context->warn("Belirlenen zarar miktarı aşıldı. # ".$lossPriceLimit." > ".$price." # ". Carbon::now()->format("d.m.Y H:i:s"));
+                            return false; //Order Cancel edilecek
+                        }
+                    }
+                }
+
                 if($orderStatus["status"] == "FILLED"){
                     $order->status = $orderStatus["status"];
                     $order->save();
@@ -250,12 +238,7 @@ class BinanceHelper{
                     sleep(2); // 2 saniye de 1 kere satın alınmış mı kontrolü
                 }
             }catch (\Exception $e) {
-                $log = new Log;
-                $log->type = 2;
-                $log->coin_id = $this->coinId;
-                $log->title = "Limit Status Error";
-                $log->description = "Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-                $log->save();
+                LogHelper::log(2, $this->coinId, "Limit Status Error", "Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 $this->context->error("Limit Emrinin Kontrolü Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
@@ -296,6 +279,7 @@ class BinanceHelper{
                 // SELL = satış olduğunda emin olmak için ek kontrol.
                 if(($sellStatus["status"] == "NEW" || $sellStatus["status"] == "FILLED") && $sellStatus["side"] == "SELL") {
                     $order = new Order;
+                    $order->unique_id = $this->uniqueId;
                     $order->coin_id = $this->coinId;
                     $order->orderId = $sellStatus["orderId"];
                     $order->symbol = $spot;
@@ -311,22 +295,12 @@ class BinanceHelper{
 
                     return $order->id;
                 }else{
-                    $log = new Log;
-                    $log->type = 1;
-                    $log->coin_id = $this->coinId;
-                    $log->title = "sellCoin Status Error";
-                    $log->description = "Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus);
-                    $log->save();
+                    LogHelper::log(1, $this->coinId, "sellCoin Status Error", "Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus));
                     $this->context->error("Satış yapma limiti farklı status değerine sahip. Data: ". json_encode($sellStatus));
                     sleep(2);
                 }
             } catch (\Exception $e) {
-                $log = new Log;
-                $log->type = 2;
-                $log->coin_id = $this->coinId;
-                $log->title = "sellCoin Limit Error";
-                $log->description = "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine();
-                $log->save();
+                LogHelper::log(2, $this->coinId, "sellCoin Limit Error", "Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 $this->context->error("Satış Yapma Limit Başarısız. Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
                 sleep(5);
             }
@@ -384,6 +358,68 @@ class BinanceHelper{
 
     }
 
+    function orderCancel($order){
+
+        while(true) {
+            try {
+                $price = floatval($this->api->price($order->symbol)); //örnek çıktı: 1.06735000
+                $coinDigit = pow(10, $this->getCoinPriceDigit($price)); //ilk önce coinin kaç basamaklı olduğunu bulmak gerekir.
+                $price = $price - ($price * 0.005); //para biriminin altına satış yaparak anlık satışı gerçekleştirebiliriz. bu yüzden para biriminin biraz düşük rakamını alıp satıl yapılacak.
+                $sellPrice = ceil($price * $coinDigit) / $coinDigit;
+
+                /*
+                  {
+                    "symbol": "LTCBTC",
+                    "origClientOrderId": "myOrder1",
+                    "orderId": 4,
+                    "orderListId": -1, //Unless part of an OCO, the value will always be -1.
+                    "clientOrderId": "cancelMyOrder1",
+                    "price": "2.00000000",
+                    "origQty": "1.00000000",
+                    "executedQty": "0.00000000",
+                    "cummulativeQuoteQty": "0.00000000",
+                    "status": "CANCELED",
+                    "timeInForce": "GTC",
+                    "type": "LIMIT",
+                    "side": "BUY"
+                    }
+                 * */
+                $cancelStatus = $this->api->cancel($order->symbol, $order->orderId);
+                if($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
+                    $order->status = "CANCELED";
+                    $order->save(); //Limit emrinin iptal edildiğine dahil güncelleme.
+                    $this->context->warn("Satış limit başarıyla iptal edili! ". Carbon::now()->format("d.m.Y H:i:s"));
+                    LogHelper::orderLog("Satış Limit İptali","Satış limit başarıyla iptal edili! ", $this->uniqueId, $order->orderId);
+
+                    $this->context->warn("Zarar Satış Limiti koyuluyor!". Carbon::now()->format("d.m.Y H:i:s"));
+                    LogHelper::orderLog("Zarar Satış","Zarar Satış Limiti koyuluyor!");
+
+                    $sellOrderId = $this->sellCoin($order->symbol, floatval($order->origQty), $sellPrice); //Satış limit emri koyuluyor.
+
+                    $this->context->warn("Zarar Satış Limiti Başarıyla Koyuldu!". Carbon::now()->format("d.m.Y H:i:s"));
+                    LogHelper::orderLog("Zarar Satış","Zarar Satış Limiti Başarıyla Koyuldu!");
+
+                    $sellOrder = Order::where("id", $sellOrderId)->first();
+                    if($this->getOrderStatus($sellOrder->symbol, $sellOrder)){ //Zarar satış gerçekleştiriliyor.
+                        $this->context->warn("Zarar Satış Limiti Başarıyla Gerçekleşti!". Carbon::now()->format("d.m.Y H:i:s"));
+                        LogHelper::orderLog("Zarar Satış","Zarar Satış Limiti Başarıyla Gerçekleşti!");
+                        return true;
+                    }else{ //Eğer koyulan limitin altına düştüyse tekrar zarar satış tekrarı deneniyor.
+                        $this->context->warn("Zarar satış limiti tekrar deneniyor! ". Carbon::now()->format("d.m.Y H:i:s"));
+                        return $this->orderCancel($sellOrder);
+                    }
+                }else{
+                    LogHelper::log(1, $this->coinId, "Cancel Error", "Cancel Edilirken Bir Hata Oluştu. Data: ". json_encode($cancelStatus));
+                    $this->context->error("Cancel Edilirken Bir Hata Oluştu. Data: ". json_encode($cancelStatus));
+                    sleep(2);
+                }
+            } catch (\Exception $e) {
+                LogHelper::log(2, $this->coinId, "Order Cancel", "Order Cancel Başarısız Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
+                $this->context->error("Order Cancel Başarısız Detay: ". $e->getMessage(). " Satır: ". $e->getLine());
+                sleep(5);
+            }
+        }
+    }
 
     /**
      * ondalıklı sayısı kaç adet varsa sayar ör: 1.23444 = 5 döner
