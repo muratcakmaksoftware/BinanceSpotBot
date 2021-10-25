@@ -15,7 +15,7 @@ class BinanceHelper{
     protected $coinId = null;
     protected $context = null;
     public $uniqueId = -1;
-    protected $lossTolerance = 0.022; //%22 Kayıp toleransı
+    protected $lossTolerance = 0.021; //%21 Kayıp toleransı
     function __construct($context, $coin_id, $test = false){
         $this->coinId = $coin_id;
         $this->context = $context;
@@ -215,19 +215,6 @@ class BinanceHelper{
                 //işlem gerçekleşmiş. filled = Sipariş tamamlandı /// $orderStatus["status"] == "CANCELED" sipariş iptal edildiyse
                 $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
 
-                //STOP-LIMIT Kontrolü
-                if($order->side == "SELL"){
-                    if(isset($orderBuy)){
-                        $orderBuyPrice = floatval($orderBuy->price);
-                        $tolerancePrice = $orderBuyPrice * $this->lossTolerance; // 1.60 * 0.04 = 0.056
-                        $lossPriceLimit = $orderBuyPrice - $tolerancePrice; // 1.60 - 0.056 = 1.544
-                        if($lossPriceLimit > $price){ // kayıp limit para birimi güncel para biriminden büyükse önceki limiti iptal edip zarar satış yapar.
-                            $this->context->warn("Belirlenen zarar miktarı aşıldı. # ".$lossPriceLimit." > ".$price." # ". Carbon::now()->format("d.m.Y H:i:s"));
-                            return false; //Order Cancel edilecek
-                        }
-                    }
-                }
-
                 if($orderStatus["status"] == "FILLED"){
                     $order->status = $orderStatus["status"];
                     $order->save();
@@ -235,6 +222,19 @@ class BinanceHelper{
                     return true; //işlem gerçekleşmiş.
                 }else{
                     $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".floatval($order->price)." >= ".$price." # işlemin gerçekleşmesi bekleniyor. # ". Carbon::now()->format("d.m.Y H:i:s"));
+
+                    //STOP-LIMIT Kontrolü
+                    if($order->side == "SELL"){
+                        if(isset($orderBuy)){
+                            $orderBuyPrice = floatval($orderBuy->price);
+                            $tolerancePrice = $orderBuyPrice * $this->lossTolerance; // 1.60 * 0.04 = 0.056
+                            $lossPriceLimit = $orderBuyPrice - $tolerancePrice; // 1.60 - 0.056 = 1.544
+                            if($lossPriceLimit > $price){ // kayıp limit para birimi güncel para biriminden büyükse önceki limiti iptal edip zarar satış yapar.
+                                $this->context->warn("Belirlenen zarar miktarı aşıldı. # ".$lossPriceLimit." > ".$price." # ". Carbon::now()->format("d.m.Y H:i:s"));
+                                return false; //Order Cancel edilecek
+                            }
+                        }
+                    }
                     sleep(2); // 2 saniye de 1 kere satın alınmış mı kontrolü
                 }
             }catch (\Exception $e) {
@@ -388,8 +388,8 @@ class BinanceHelper{
                 if($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
                     $order->status = "CANCELED";
                     $order->save(); //Limit emrinin iptal edildiğine dahil güncelleme.
-                    $this->context->warn("Satış limit başarıyla iptal edili! ". Carbon::now()->format("d.m.Y H:i:s"));
-                    LogHelper::orderLog("Satış Limit İptali","Satış limit başarıyla iptal edili! ", $this->uniqueId, $order->orderId);
+                    $this->context->info("Satış limit başarıyla iptal edildi! ". Carbon::now()->format("d.m.Y H:i:s"));
+                    LogHelper::orderLog("Satış Limit İptali","Satış limit başarıyla iptal edildi! ", $this->uniqueId, $order->orderId);
 
                     $this->context->warn("Zarar Satış Limiti koyuluyor!". Carbon::now()->format("d.m.Y H:i:s"));
                     LogHelper::orderLog("Zarar Satış","Zarar Satış Limiti koyuluyor!");
