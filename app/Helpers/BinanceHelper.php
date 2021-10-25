@@ -16,6 +16,7 @@ class BinanceHelper{
     protected $context = null;
     public $uniqueId = -1;
     protected $lossTolerance = 0.021; //%21 Kayıp toleransı
+    public $fee = 0.001;
     function __construct($context, $coin_id, $test = false){
         $this->coinId = $coin_id;
         $this->context = $context;
@@ -217,6 +218,8 @@ class BinanceHelper{
 
                 if($orderStatus["status"] == "FILLED"){
                     $order->status = $orderStatus["status"];
+                    $order->fee = floatval($order->price) * (floatval($order->origQty) * $this->fee); //toplam kesilen komisyon doları
+                    $order->total = floatval($order->price) * floatval($order->origQty); // toplam ödenen para
                     $order->save();
                     $this->context->warn($order->side." # ".$spot." # durumu # ".$order->status." # ".floatval($order->price)." >= ".$price." # işlem başarıyla gerçekleşti! # ". Carbon::now()->format("d.m.Y H:i:s"));
                     return true; //işlem gerçekleşmiş.
@@ -387,6 +390,8 @@ class BinanceHelper{
                 $cancelStatus = $this->api->cancel($order->symbol, $order->orderId);
                 if($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
                     $order->status = "CANCELED";
+                    $order->fee = 0;
+                    $order->total = 0;
                     $order->save(); //Limit emrinin iptal edildiğine dahil güncelleme.
                     $this->context->info("Satış limit başarıyla iptal edildi! ". Carbon::now()->format("d.m.Y H:i:s"));
                     LogHelper::orderLog("Satış Limit İptali","Satış limit başarıyla iptal edildi! ", $this->uniqueId, $order->orderId);

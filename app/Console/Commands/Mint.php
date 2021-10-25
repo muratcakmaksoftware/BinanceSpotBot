@@ -73,6 +73,7 @@ class Mint extends Command
                 $fee = $binanceHelper->getCommission($spot);
                 $this->info($whileCounter."-Komisyon: ". $fee);
                 LogHelper::orderLog("", $whileCounter."-Komisyon: ". $fee, $uniqueId);
+                $binanceHelper->fee = floatval($fee);
 
                 //Cüzdan daki para bilgisi alınıyor
                 $walletCurrency = $binanceHelper->getWalletCurrency($currency);
@@ -132,9 +133,6 @@ class Mint extends Command
                 LogHelper::orderLog("Satın Alma Limit",$whileCounter."-Satın Alma Limitinin gerçekleşmesi bekleniyor...", $uniqueId, $buyOrderId);
 
                 $buyOrder = Order::where("id", $buyOrderId)->first();
-                //Satın almada toplam total kaydedilmesi.
-                $buyOrder->total = $totalBuyPrice;
-                $buyOrder->save();
 
                 $binanceHelper->getOrderStatus($spot, $buyOrder);
 
@@ -154,7 +152,7 @@ class Mint extends Command
                     Alınan adet = 188
                     188 * 0,001 = 0,188 = toplam kesilen komisyon miktarı COİN
                     0,0583665 * 0,188 = 0,010972902 // komisyon kesilen coinin toplam dolar karşılığı.
-                    0,010972902 / 188 = 0,0000583665 // coin başına alınan komisyon dolar bilgisi.
+                    0,010972902 / 188 = 0,0000583665 // coin adeti başına alınan komisyon dolar bilgisi.
                 */
                 $buyCommissionPrice = (($buyPrice * $buyPieceCommission) / $buyPiece);
                 $this->info($whileCounter."-Adet başına kesilen komisyon ".$currency.": ". $buyCommissionPrice);
@@ -210,19 +208,11 @@ class Mint extends Command
 
                 $sellOrder = Order::where("id", $sellOrderId)->first();
 
+                //Satışta harcanan total miktarın alınması.
                 $totalSellPrice = $sellPrice * $sellPiece;
 
-                //Satışta harcanan total miktarın alınması.
-                $sellOrder->total = $totalSellPrice;
-                $sellOrder->save();
-
-                //Satın Alımında Ödenen Toplam komisyon dolarının kaydedilmesi.
-                $buyOrder->fee = ($buyCommissionPrice * $buyPiece);
-                $buyOrder->save();
-
                 //Satışta Ödenen Toplam komisyon dolarının kaydedilmesi.
-                $sellOrder->fee = ($sellCommissionPrice * $sellPiece);
-                $sellOrder->save();
+                $totalSellCommissionPrice = $sellCommissionPrice * $sellPiece;
 
                 //Ön Analiz Bilgilerinin Basılması
                 $this->info($whileCounter."-Alımda ödenen ".$currency.": ". $buyOrder->total);
@@ -231,17 +221,17 @@ class Mint extends Command
                 $this->info($whileCounter."-Alımda Ödenen Toplam Komisyon ".$currency.": ". $buyOrder->fee);
                 LogHelper::orderLog("Alımda Ödenen",$whileCounter."-Alımda Ödenen Toplam Komisyon ".$currency.": ". $buyOrder->fee, $uniqueId);
 
-                $this->info($whileCounter."-Satımda Ödenen ".$currency.": ". $sellOrder->total);
-                LogHelper::orderLog("Satımda Ödenen",$whileCounter."-Satımda Ödenen ".$currency.": ". $sellOrder->total, $uniqueId);
+                $this->info($whileCounter."-Satımda Ödenecek ".$currency.": ". $totalSellPrice);
+                LogHelper::orderLog("Satımda Ödenecek",$whileCounter."-Satımda Ödenecek ".$currency.": ". $totalSellPrice, $uniqueId);
 
-                $this->info($whileCounter."-Satımda Ödenen Toplam Komisyon ".$currency.": ". $sellOrder->fee);
-                LogHelper::orderLog("Satımda Ödenen",$whileCounter."-Satımda Ödenen Toplam Komisyon ".$currency.": ". $sellOrder->fee, $uniqueId);
+                $this->info($whileCounter."-Satımda Ödenecek Toplam Komisyon ".$currency.": ". $totalSellCommissionPrice);
+                LogHelper::orderLog("Satımda Ödenecek",$whileCounter."-Satımda Ödenecek Toplam Komisyon ".$currency.": ". $totalSellCommissionPrice, $uniqueId);
 
                 $this->info($whileCounter."-Satış işleminin gerçekleşmesi bekleniyor...");
                 LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış işleminin gerçekleşmesi bekleniyor...", $uniqueId, $sellOrderId);
 
-                $this->info($whileCounter."-Satışta Gerçekleşecek Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)));
-                LogHelper::orderLog("Satışta Gerçekleşecek Toplam Kâr",$whileCounter."-Toplam Kâr: ". floatval(($sellOrder->total - $buyOrder->total) - ($sellOrder->fee + $buyOrder->fee)), $uniqueId);
+                $this->info($whileCounter."-Satışta Gerçekleşecek Toplam Kâr: ". floatval(($totalSellPrice - $buyOrder->total) - ($totalSellCommissionPrice + $buyOrder->fee)));
+                LogHelper::orderLog("Satışta Gerçekleşecek Toplam Kâr",$whileCounter."-Toplam Kâr: ". floatval(($totalSellPrice - $buyOrder->total) - ($totalSellCommissionPrice + $buyOrder->fee)), $uniqueId);
 
                 //Satış limiti gerçekleşmiş mi ?
                 if($binanceHelper->getOrderStatus($spot, $sellOrder)){
@@ -249,10 +239,10 @@ class Mint extends Command
                     LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış Limiti Başarıyla Gerçekleşti!", $uniqueId, $sellOrderId);
                 }else{
                     $this->info($whileCounter."-Satış Limiti İptal Ediliyor!");
-                    LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış Limiti İptal Ediliyor!", $uniqueId, $sellOrderId);
+                    LogHelper::orderLog("Satış Limit İptali",$whileCounter."-Satış Limiti İptal Ediliyor!", $uniqueId, $sellOrderId);
                     $binanceHelper->orderCancel($sellOrder);
                     $this->info($whileCounter."-Satış Limiti Başarıyla İptal Edildi!");
-                    LogHelper::orderLog("Satış Yapma",$whileCounter."-Satış Limiti İptal Ediliyor!", $uniqueId, $sellOrderId);
+                    LogHelper::orderLog("Satış Limit İptali",$whileCounter."-Satış Limiti Başarıyla İptal Edildi!", $uniqueId, $sellOrderId);
                 }
 
                 // ################## [SATIŞ YAPMA BİTİŞ] ##################
