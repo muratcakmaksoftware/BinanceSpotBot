@@ -343,8 +343,34 @@ class BinanceHelper{
                     ]
                  * */
 
-                $openorders = $this->api->openOrders($spot);
-                if(count($openorders) > 0){ //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
+                $openOrders = $this->api->openOrders($spot);
+                if(count($openOrders) > 0){ //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
+
+                    //Limit durumuna göre iptal veya yeniden limit oluşturulması
+                    foreach($openOrders as $openOrder){
+                        if($spot == $openOrder["symbol"]){ //SPOT bilgisine göre işlem gerçekleştirilecek farklı coinlerde spot olabilir.
+                            $order = Order::where("orderId", $openOrder["orderId"])->first();
+                            if(isset($order)){
+                                if($order->side == "BUY"){
+                                    $this->context->warn("Önceki Alım adeti iptal ediliyor yeni alım adeti alınacak. ". Carbon::now()->format("d.m.Y H:i:s"));
+                                    LogHelper::orderLog("Önceki Satın Limitinin İptali","Önceki Alım adeti iptal ediliyor yeni alım adeti alınacak. ", $order->unique_id, $order->orderId);
+                                    $cancelStatus = $this->api->cancel($order->symbol, $order->orderId);
+                                    if($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
+                                        $order->status = "CANCELED";
+                                        $order->fee = 0;
+                                        $order->total = 0;
+                                        $order->save(); //Limit emrinin iptal edildiğine dahil güncelleme.
+                                        $this->context->info("Önceki satın alım limit başarıyla iptal edildi! " . Carbon::now()->format("d.m.Y H:i:s"));
+                                        LogHelper::orderLog("Önceki Satın Limitinin İptali", "Önceki satın alım limit başarıyla iptal edildi! ", $order->unique_id, $order->orderId);
+                                    }
+                                }else if($order->side == "SELL"){
+                                    // Zarar satım kontrolüne sokulacak. ---------------------------------- KALINAN YER
+                                }else{
+                                    $this->context->warn("OpenOrder Bilinmeyen durum Order => ".$order->side." ". Carbon::now()->format("d.m.Y H:i:s"));
+                                }
+                            }//else order bulunamadı işlem yapılmayacak
+                        }
+                    }
                     // limitin gerçekleşmesi bekleniyor.
                     $this->context->warn("Önceden koyulmuş limitin gerçekleşmesi bekleniyor. ". Carbon::now()->format("d.m.Y H:i:s"));
                     sleep(2);
