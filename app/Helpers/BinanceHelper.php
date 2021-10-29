@@ -16,6 +16,7 @@ class BinanceHelper{
     protected $context = null;
     public $uniqueId = -1;
     protected $lossTolerance = 0.022; //%22 Kayıp toleransı
+    protected $limitLossTolerance = 0.04; //%4 Yüksek zarar miktarını engellemek için tolerans.
     public $fee = 0.001;
     function __construct($context, $coin_id, $test = false){
         $this->coinId = $coin_id;
@@ -230,11 +231,21 @@ class BinanceHelper{
                     if($order->side == "SELL"){
                         if(isset($orderBuy)){
                             $orderBuyPrice = floatval($orderBuy->price);
+                            //göze alınan kabul edilebilir kayıp toleransı.
                             $tolerancePrice = $orderBuyPrice * $this->lossTolerance; // 1.60 * 0.04 = 0.056
                             $lossPriceLimit = $orderBuyPrice - $tolerancePrice; // 1.60 - 0.056 = 1.544
-                            if($lossPriceLimit > $price){ // kayıp limit para birimi güncel para biriminden büyükse önceki limiti iptal edip zarar satış yapar.
-                                $this->context->warn("Belirlenen zarar miktarı aşıldı. # ".$lossPriceLimit." > ".$price." # ". Carbon::now()->format("d.m.Y H:i:s"));
-                                return false; //Order Cancel edilecek
+
+                            //Limit Tolerance yüksek miktarda düşüş gerçekleştirdiğinde iptali gerçekleştirmemek için kontroldür.
+                            //Yüksek kayıp miktarını beklemek için yapıldı.
+                            $limitTolerancePrice = $orderBuyPrice * $this->limitLossTolerance;
+                            $limitLossPriceLimit = $orderBuyPrice - $limitTolerancePrice;
+                            if($limitLossPriceLimit > $price){
+                                $this->context->warn("Belirlenen yüksek zarar miktarı aşıldı bu yüzden işlem gerçekleşene kadar beklenecek. # ".$limitLossPriceLimit." > ".$price." # ". Carbon::now()->format("d.m.Y H:i:s"));
+                            }else{ //Göze alınabilir kayıp miktarı kontrolü.
+                                if($lossPriceLimit > $price){ // kayıp limit para birimi güncel para biriminden büyükse önceki limiti iptal edip zarar satış yapar.
+                                    $this->context->warn("Belirlenen zarar miktarı aşıldı. # ".$lossPriceLimit." > ".$price." # ". Carbon::now()->format("d.m.Y H:i:s"));
+                                    return false; //Order Cancel edilecek
+                                }
                             }
                         }
                     }
@@ -344,44 +355,48 @@ class BinanceHelper{
                  * */
 
                 $openOrders = $this->api->openOrders($spot);
+                //dd($openOrders);
                 if(count($openOrders) > 0){ //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
                     // limitin gerçekleşmesi bekleniyor.
                     $this->context->warn("Önceden koyulmuş limitin gerçekleşmesi bekleniyor. ". Carbon::now()->format("d.m.Y H:i:s"));
                     //Limit durumuna göre iptal veya yeniden limit oluşturulması
                     foreach($openOrders as $openOrder){
                         if($spot == $openOrder["symbol"]){ //SPOT bilgisine göre işlem gerçekleştirilecek farklı coinlerde spot olabilir.
-                            $order = Order::where("orderId", $openOrder["orderId"])->first();
-                            if(isset($order)){
-                                if($order->side == "BUY"){
-                                    $this->context->warn("Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak. ". Carbon::now()->format("d.m.Y H:i:s"));
-                                    LogHelper::orderLog("Önceki ALIM Limitinin İptali","Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak.", $order->unique_id, $order->orderId);
-                                    $cancelStatus = $this->api->cancel($order->symbol, $order->orderId);
-                                    if($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
-                                        $order->status = "CANCELED";
-                                        $order->fee = 0;
-                                        $order->total = 0;
-                                        $order->save(); //Limit emrinin iptal edildiğine dahil güncelleme.
-                                        $this->context->info("Önceki satın alım limit başarıyla iptal edildi! " . Carbon::now()->format("d.m.Y H:i:s"));
-                                        LogHelper::orderLog("Önceki Satın Limitinin İptali", "Önceki satın alım limit başarıyla iptal edildi! ", $order->unique_id, $order->orderId);
-                                    }
-                                }else if($order->side == "SELL"){
-                                    $this->context->warn("Önceki Satım limiti kontrol ediliyor.". Carbon::now()->format("d.m.Y H:i:s"));
-                                    LogHelper::orderLog("Önceki Satım Limiti Kontrolü","Önceki Satım limiti kontrol ediliyor.", $order->unique_id, $order->orderId);
-                                    //Önceki Satış limiti gerçekleşmiş mi ?
-                                    if($this->getOrderStatus($order->symbol, $order)){
-                                        $this->context->info("Önceki Satış Limiti Zaten Gerçekleşmiş!");
-                                        LogHelper::orderLog("Önceki Satım Limiti Kontrolü","Önceki Satış Limiti Zaten Gerçekleşmiş!", $order->unique_id, $order->orderId);
-                                    }else{
-                                        $this->context->info("Önceki Satış Limiti İptal Ediliyor!");
-                                        LogHelper::orderLog("Önceki Satış Limit İptali","Önceki Satış Limiti İptal Ediliyor!", $order->unique_id, $order->orderId);
-                                        $this->orderCancel($order);
-                                        $this->context->info("Önceki Satış Limiti Başarıyla İptal Edildi!");
-                                        LogHelper::orderLog("Önceki Satış Limit İptali","Önceki Satış Limiti Başarıyla İptal Edildi!", $order->unique_id, $order->orderId);
-                                    }
+                            if($openOrder["side"] == "BUY"){ //Daha önce satın alınmamış olduğundan direk buy işlemi iptal edilecek.
+                                $this->context->warn("Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak. ". Carbon::now()->format("d.m.Y H:i:s"));
+                                LogHelper::orderLog("Önceki ALIM Limitinin İptali","Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak.");
+                                $cancelStatus = $this->api->cancel($openOrder["symbol"], $openOrder["orderId"]);
+                                if($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
+                                    $this->context->warn("Önceki satın alım limiti başarıyla iptal edildi! " . Carbon::now()->format("d.m.Y H:i:s"));
+                                    LogHelper::orderLog("Önceki Satın Limitinin İptali", "Önceki satın alım limit başarıyla iptal edildi!");
                                 }else{
-                                    $this->context->warn("OpenOrder Bilinmeyen durum Order => ".$order->side." ". Carbon::now()->format("d.m.Y H:i:s"));
+                                    LogHelper::log(1, $this->coinId, "Cancel Error", "Cancel Edilirken Bir Hata Oluştu. Data: ". json_encode($cancelStatus));
+                                    $this->context->error("Cancel Edilirken Bir Hata Oluştu. Data: ". json_encode($cancelStatus));
                                 }
-                            }//else order bulunamadı işlem yapılmayacak
+                            }else if($openOrder["side"] == "SELL"){ //LIMIT EMRI SELL mi ?
+                                $order = Order::where("orderId", $openOrder["orderId"])->first();
+                                if(isset($order)){
+                                    if($order->side == "SELL"){
+                                        $this->context->warn("Önceki Satım limiti kontrol ediliyor.". Carbon::now()->format("d.m.Y H:i:s"));
+                                        LogHelper::orderLog("Önceki Satım Limiti Kontrolü","Önceki Satım limiti kontrol ediliyor.", $order->unique_id, $order->orderId);
+                                        //Önceki Satış limiti gerçekleşmiş mi ?
+                                        if($this->getOrderStatus($order->symbol, $order)){
+                                            $this->context->info("Önceki Satış Limiti Zaten Gerçekleşmiş!");
+                                            LogHelper::orderLog("Önceki Satım Limiti Kontrolü","Önceki Satış Limiti Zaten Gerçekleşmiş!", $order->unique_id, $order->orderId);
+                                        }else{
+                                            $this->context->info("Önceki Satış Limiti İptal Ediliyor!");
+                                            LogHelper::orderLog("Önceki Satış Limit İptali","Önceki Satış Limiti İptal Ediliyor!", $order->unique_id, $order->orderId);
+                                            $this->orderCancel($order);
+                                            $this->context->info("Önceki Satış Limiti Başarıyla İptal Edildi!");
+                                            LogHelper::orderLog("Önceki Satış Limit İptali","Önceki Satış Limiti Başarıyla İptal Edildi!", $order->unique_id, $order->orderId);
+                                        }
+                                    }else{
+                                        $this->context->warn("Database OpenOrder Bilinmeyen durum Order => ".$order->side." ". Carbon::now()->format("d.m.Y H:i:s"));
+                                    }
+                                }//else order bulunamadı işlem yapılmayacak
+                            }else{
+                                $this->context->warn("API OpenOrder Bilinmeyen durum Order => ".$openOrder["side"]." ". Carbon::now()->format("d.m.Y H:i:s"));
+                            }
                         } //sembole göre kontrol
                     }
 
