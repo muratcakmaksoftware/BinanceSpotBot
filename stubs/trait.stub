@@ -4,7 +4,5 @@ namespace App\Traits;
 
 trait {{trait_name}}
 {
-    /**
-    * Create regular or static methods here
-    */
+
 }

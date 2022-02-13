@@ -1,13 +1,22 @@
 <?php
 
-namespace App\Console\Commands;
+namespace App\Console\Commands\Ancients;
 
 use App\Models\Coin;
 use App\Models\Order;
+use Binance;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
-use \Binance;
+use function App\Console\Commands\buyCoin;
+use function App\Console\Commands\getCommission;
+use function App\Console\Commands\getOrderStatus;
+use function App\Console\Commands\getPaymentCoinAmount;
+use function App\Console\Commands\getWalletDolar;
+use function App\Console\Commands\openOrdersByPass;
+use function App\Console\Commands\orderLogAdd;
+use function App\Console\Commands\sellCoin;
+use function base_path;
+use function dd;
 
 class OldMint extends Command
 {
