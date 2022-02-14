@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Console\Commands\Ancients;
+namespace App\Console\Commands\old;
 
 use App\Models\Coin;
 use App\Models\Order;

@@ -2,7 +2,7 @@
 
 namespace App\Console;
 
-use App\Console\Commands\Ancients\BuyAndSellMint;
+use App\Console\Commands\old\BuyAndSellMint;
 use App\Console\Commands\Mint;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;

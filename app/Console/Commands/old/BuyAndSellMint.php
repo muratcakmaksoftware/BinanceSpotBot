@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Console\Commands\Ancients;
+namespace App\Console\Commands\old;
 
 use App\Helpers\BinanceHelper;
 use App\Helpers\LogHelper;
