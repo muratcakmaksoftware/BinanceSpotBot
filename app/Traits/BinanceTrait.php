@@ -27,14 +27,11 @@ trait BinanceTrait
                 if (isset($fee[0]["makerCommission"])) {
                     return $fee[0]["makerCommission"];
                 } else {
-                    $this->
-                    LogHelper::log(1, $this->coinId, "Komisyon Bilgisi", "Komisyon bilgisi alınamadı" . json_encode($fee));
-                    $this->context->error("Komisyon bilgisi alınamadı");
+                    $this->log(ConsoleMessageType::ERROR, $this->coinId, "Komisyon Bilgisi", "Komisyon bilgisi alınamadı" . json_encode($fee));
                     sleep(2);
                 }
             } catch (\Exception $e) {
-                LogHelper::log(2, $this->coinId, "Komisyon Bilgisi API Error", "Komisyon bilgisini alma api error: " . $e->getMessage() . " Satır: " . $e->getLine());
-                $this->context->error("Komisyon bilgisini alma api error: " . $e->getMessage() . " Satır: " . $e->getLine());
+                $this->log(ConsoleMessageType::ERROR, $this->coinId, "Komisyon Bilgisi API Error", "Komisyon bilgisini alma api error: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
         }
@@ -50,8 +47,7 @@ trait BinanceTrait
                 $balances = $this->api->balances($ticker)[$currency];
                 return $balances["available"]; //Cüzdanımda kalan para birimi
             } catch (\Exception $e) {
-                LogHelper::log(2, $this->coinId, "Balance API Error", "Cüzdan Para Bilgisi Alınamadı: " . $e->getMessage() . " Satır: " . $e->getLine());
-                $this->context->error("Cüzdan Para Bilgisi Alınamadı: " . $e->getMessage() . " Satır: " . $e->getLine());
+                $this->log(ConsoleMessageType::ERROR, $this->coinId, "Balance API Error", "Cüzdan Para Bilgisi Alınamadı: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
         }
@@ -211,8 +207,8 @@ trait BinanceTrait
                     //STOP-LIMIT Kontrolü
                     if ($order->side == "SELL") { //ORDER İŞLEMİ SATIŞ İŞLEMİYSE
 
-                        if($this->lossToleranceStatus){ // Kayıp toleransı aktif mi ?
-                            if(!isset($orderBuy)){
+                        if ($this->lossToleranceStatus) { // Kayıp toleransı aktif mi ?
+                            if (!isset($orderBuy)) {
                                 $orderBuy = Order::where("unique_id", $order->unique_id)->where("side", "BUY")->first(); //BU UNIQUE_ID AIT BUY ISLEMININ ORDER BILGISININ ALINMASI.
                             }
 
@@ -226,10 +222,10 @@ trait BinanceTrait
                             $limitTolerancePrice = $orderBuyPrice * $this->limitLossTolerance;
                             $limitLossPriceLimit = $orderBuyPrice - $limitTolerancePrice;
                             if ($limitLossPriceLimit > $price) {
-                                $this->consoleMessage(ConsoleMessageType::WARNING,"Belirlenen yüksek zarar miktarı aşıldı bu yüzden işlem gerçekleşene kadar beklenecek. # " . $limitLossPriceLimit . " > " . $price . " # ");
+                                $this->consoleMessage(ConsoleMessageType::WARNING, "Belirlenen yüksek zarar miktarı aşıldı bu yüzden işlem gerçekleşene kadar beklenecek. # " . $limitLossPriceLimit . " > " . $price . " # ");
                             } else { //Göze alınabilir kayıp miktarı kontrolü.
                                 if ($lossPriceLimit > $price) { // kayıp limit para birimi güncel para biriminden büyükse önceki limiti iptal edip zarar satış yapar.
-                                    $this->consoleMessage(ConsoleMessageType::WARNING,"Belirlenen zarar miktarı aşıldı. # " . $lossPriceLimit . " > " . $price . " # ");
+                                    $this->consoleMessage(ConsoleMessageType::WARNING, "Belirlenen zarar miktarı aşıldı. # " . $lossPriceLimit . " > " . $price . " # ");
                                     return false; //Order Cancel edilecek
                                 }
                             }
@@ -296,13 +292,11 @@ trait BinanceTrait
 
                     return $order->id;
                 } else {
-                    LogHelper::log(1, $this->coinId, "sellCoin Status Error", "Satış yapma limiti farklı status değerine sahip. Data: " . json_encode($sellStatus));
-                    $this->context->error("Satış yapma limiti farklı status değerine sahip. Data: " . json_encode($sellStatus));
+                    $this->log(ConsoleMessageType::ERROR, $this->coinId,"sellCoin Status Error", "Satış yapma limiti farklı status değerine sahip. Data: " . json_encode($sellStatus));
                     sleep(2);
                 }
             } catch (\Exception $e) {
-                LogHelper::log(2, $this->coinId, "sellCoin Limit Error", "Satış Yapma Limit Başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
-                $this->context->error("Satış Yapma Limit Başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
+                $this->log(ConsoleMessageType::ERROR, $this->coinId, "sellCoin Limit Error", "Satış Yapma Limit Başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
         }
@@ -366,18 +360,17 @@ trait BinanceTrait
                                         //Önceki Satış limiti gerçekleşmiş mi ?
                                         if ($this->getOrderStatus($order->symbol, $order)) {
                                             $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti Zaten Gerçekleşmiş!", $order->unique_id, $order->orderId);
-                                        } else {
+                                        } else {//Eğer $lossToleranceStatus aktif ise önceki limit iptal edilir.
                                             $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti İptal Ediliyor!", $order->unique_id, $order->orderId);
                                             $this->orderCancel($order);
-                                            $this->context->info("Önceki Satış Limiti Başarıyla İptal Edildi!");
-                                            LogHelper::orderLog("Önceki Satış Limit İptali", "Önceki Satış Limiti Başarıyla İptal Edildi!", $order->unique_id, $order->orderId);
+                                            $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti Başarıyla İptal Edildi!", $order->unique_id, $order->orderId);
                                         }
                                     } else {
-                                        $this->context->warn("Database OpenOrder Bilinmeyen durum Order => " . $order->side . " " . Carbon::now()->format("d.m.Y H:i:s"));
+                                        $this->consoleMessage(ConsoleMessageType::WARNING, "Database OpenOrder Bilinmeyen durum Order => " . $order->side);
                                     }
                                 }//else order bulunamadı işlem yapılmayacak
                             } else {
-                                $this->context->warn("API OpenOrder Bilinmeyen durum Order => " . $openOrder["side"] . " " . Carbon::now()->format("d.m.Y H:i:s"));
+                                $this->consoleMessage(ConsoleMessageType::WARNING, "API OpenOrder Bilinmeyen durum Order => " . $openOrder["side"]);
                             }
                         } //sembole göre kontrol
                     }
@@ -387,8 +380,7 @@ trait BinanceTrait
                     return true; //limit emri bulunamadı.
                 }
             } catch (\Exception $e) {
-                LogHelper::log(2, $this->coinId, "Open Orders Bypass", "Daha önceden limit var mı kontrolü başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
-                $this->context->error("Daha önceden limit var mı kontrolü başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
+                $this->log(ConsoleMessageType::ERROR, $this->coinId, "Open Orders Bypass", "Daha önceden limit var mı kontrolü başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
 
@@ -405,11 +397,6 @@ trait BinanceTrait
     {
         while (true) {
             try {
-                $price = floatval($this->api->price($order->symbol)); //örnek çıktı: 1.06735000
-                $coinDigit = pow(10, $this->getCoinPriceDigit($price)); //ilk önce coinin kaç basamaklı olduğunu bulmak gerekir.
-                $price = $price - ($price * 0.005); //para biriminin altına satış yaparak anlık satışı gerçekleştirebiliriz. bu yüzden para biriminin biraz düşük rakamını alıp satış yapılacak.
-                $sellPrice = ceil($price * $coinDigit) / $coinDigit;
-
                 /*
                   {
                     "symbol": "LTCBTC",
@@ -434,26 +421,12 @@ trait BinanceTrait
                     $order->fee = 0;
                     $order->total = 0;
                     $order->save(); //Limit emrinin iptal edildiğine dahil güncelleme.
-                    $this->context->info("Satış limit başarıyla iptal edildi! " . Carbon::now()->format("d.m.Y H:i:s"));
-                    LogHelper::orderLog("Satış Limit İptali", "Satış limit başarıyla iptal edildi! ", $this->uniqueId, $order->orderId);
+                    $this->orderLog(ConsoleMessageType::INFO,"Satış limit başarıyla iptal edildi!", $this->uniqueId, $order->orderId);
 
-                    $this->context->warn("Zarar Satış Limiti koyuluyor!" . Carbon::now()->format("d.m.Y H:i:s"));
-                    LogHelper::orderLog("Zarar Satış", "Zarar Satış Limiti koyuluyor!");
-
-                    $sellOrderId = $this->sellCoin($order->symbol, floatval($order->origQty), $sellPrice); //Satış limit emri koyuluyor.
-
-                    $this->context->warn("Zarar Satış Limiti Başarıyla Koyuldu!" . Carbon::now()->format("d.m.Y H:i:s"));
-                    LogHelper::orderLog("Zarar Satış", "Zarar Satış Limiti Başarıyla Koyuldu!");
-
-                    $sellOrder = Order::where("id", $sellOrderId)->first();
-                    if ($this->getOrderStatus($sellOrder->symbol, $sellOrder)) { //Zarar satış gerçekleştiriliyor.
-                        $this->context->warn("Zarar Satış Limiti Başarıyla Gerçekleşti!" . Carbon::now()->format("d.m.Y H:i:s"));
-                        LogHelper::orderLog("Zarar Satış", "Zarar Satış Limiti Başarıyla Gerçekleşti!");
-                        return true;
-                    } else { //Eğer koyulan limitin altına düştüyse tekrar zarar satış tekrarı deneniyor.
-                        $this->context->warn("Zarar satış limiti tekrar deneniyor! " . Carbon::now()->format("d.m.Y H:i:s"));
-                        return $this->orderCancel($sellOrder);
+                    if ($this->lossToleranceStatus) {
+                        return $this->sellLossTolerance($order);
                     }
+                    return true;
                 } else {
                     LogHelper::log(1, $this->coinId, "Cancel Error", "Cancel Edilirken Bir Hata Oluştu. Data: " . json_encode($cancelStatus));
                     $this->context->error("Cancel Edilirken Bir Hata Oluştu. Data: " . json_encode($cancelStatus));
@@ -464,6 +437,35 @@ trait BinanceTrait
                 $this->context->error("Order Cancel Başarısız Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
+        }
+    }
+
+    /**
+     * Belirtilen kayıp tolaransı olduğunda zararına satışı gerçekleştirir.
+     * @param $order
+     * @return bool|void
+     * @throws \Exception
+     */
+    public function sellLossTolerance($order)
+    {
+        $price = floatval($this->api->price($order->symbol)); //örnek çıktı: 1.06735000 // Zarar satış limiti koyulacak para biriminin güncel değerini alınıyor.
+        $coinDigit = pow(10, $this->getCoinPriceDigit($price)); //coinin basamak değeri alınıyor.
+        $price = $price - ($price * 0.005); //para biriminin altına satış yaparak anlık satışı gerçekleştirebiliriz. bu yüzden para biriminin biraz düşük rakamını alıp satış yapılacak.
+        $sellPrice = ceil($price * $coinDigit) / $coinDigit;
+
+        $this->orderLog(ConsoleMessageType::WARNING,"Zarar Satış Limiti koyuluyor!", $this->uniqueId, $order->orderId);
+
+        $sellOrderId = $this->sellCoin($order->symbol, floatval($order->origQty), $sellPrice); //Satış limit emri koyuluyor.
+
+        $this->orderLog(ConsoleMessageType::WARNING, "Zarar Satış Limiti Başarıyla Koyuldu!", $this->uniqueId, $sellOrderId);
+
+        $sellOrder = Order::where("id", $sellOrderId)->first();
+        if ($this->getOrderStatus($sellOrder->symbol, $sellOrder)) { //Zarar satış gerçekleştiriliyor.
+            $this->orderLog(ConsoleMessageType::WARNING, "Zarar Satış Limiti Başarıyla Gerçekleşti!", $this->uniqueId, $sellOrder->id);
+            return true;
+        } else { //Eğer koyulan limitin altına düştüyse tekrar zarar satış tekrarı deneniyor.
+            $this->orderLog(ConsoleMessageType::WARNING, "Zarar satış limiti tekrar deneniyor!", $this->uniqueId, $sellOrder->id);
+            return $this->orderCancel($sellOrder);
         }
     }
 
