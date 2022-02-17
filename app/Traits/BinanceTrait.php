@@ -9,7 +9,11 @@ use Illuminate\Support\Str;
 
 trait BinanceTrait
 {
-    //Komisyon bilgisinin alınması.
+    /**
+     * Komisyon bilgisinin alınması.
+     * @param $spot
+     * @return mixed
+     */
     function getCommission($spot)
     {
         while (true) {
@@ -37,7 +41,11 @@ trait BinanceTrait
         }
     }
 
-    //Cüzdan daki para bilgisinin alınması
+    /**
+     * Cüzdan daki para bilgisinin alınması örneğin USDT bilgisi
+     * @param $currency
+     * @return mixed
+     */
     public function getWalletCurrency($currency)
     {
         while (true) {
@@ -56,14 +64,12 @@ trait BinanceTrait
 
     /**
      * Alınacak coinin miktarın stabiletisini kontrol etme.
-     * @param $context
      * @param $spot
      * @param $coinPurchase
      * @param $sensitivity
-     * @param bool $test
      * @return float
      */
-    function getStabilizationPrice($spot, $coinPurchase, $sensitivity)
+    function getStabilizationPrice($spot, $coinPurchase, $sensitivity): float
     {
 
         $price = -1; //şu anda olan coin para birimi
@@ -84,14 +90,14 @@ trait BinanceTrait
                     $priceUpLimit = $price + $priceDiff;
                     $priceDownLimit = $price - $priceDiff;
                     $priceMaxMinStatus = true;
-                    $this->context->info("----------------------");
-                    $this->context->info("Ölçülen Fiyat: " . $price);
-                    $this->context->info("Max Fiyat Aralığı: " . $priceUpLimit);
-                    $this->context->info("Min Fiyat Aralığı: " . $priceDownLimit);
-                    $this->context->info("Max-Min Farkı: " . $priceDiff);
-                    $this->context->info("----------------------");
+                    $this->consoleMessage(ConsoleMessageType::INFO, '----------------------', false);
+                    $this->consoleMessage(ConsoleMessageType::INFO,"Ölçülen Fiyat: " . $price, false);
+                    $this->consoleMessage(ConsoleMessageType::INFO,"Max Fiyat Aralığı: " . $priceUpLimit, false);
+                    $this->consoleMessage(ConsoleMessageType::INFO,"Min Fiyat Aralığı: " . $priceDownLimit, false);
+                    $this->consoleMessage(ConsoleMessageType::INFO,"Max-Min Farkı: " . $priceDiff, false);
+                    $this->consoleMessage(ConsoleMessageType::INFO,"----------------------", false);
                 } else {
-                    $this->context->warn($buyPriceCounter . ". Stabilitesi ölçülüyor #   " . $spot . ": " . $price . "   # " . $buyPriceCounter . " == " . $buyPriceCount . " # " . Carbon::now()->format("d.m.Y H:i:s"));
+                    $this->consoleMessage(ConsoleMessageType::WARNING,$buyPriceCounter . ". Stabilitesi ölçülüyor #   " . $spot . ": " . $price . "   # " . $buyPriceCounter . " == " . $buyPriceCount . " # " . Carbon::now()->format("d.m.Y H:i:s"), false);
                     if ($price > $priceUpLimit) { //max değeri aşılmış
                         $priceMaxMinStatus = false; //tekrardan min ve maks değeri belirle
                         $buyPriceCounter = 0;
@@ -100,7 +106,7 @@ trait BinanceTrait
                         $buyPriceCounter = 0;
                     } else { //Belirtilen min maks değerinin içerisinde
                         if ($buyPriceCounter == $buyPriceCount) { //aralık aynı seyirde devam ettiyse girer.
-                            $this->context->warn("Stabilitesi Bulundu: " . $price);
+                            $this->consoleMessage(ConsoleMessageType::WARNING,"Stabilitesi Bulundu: " . $price, false);
                             return $price; //alınacak para birimi belirlendi döngü sonlandırıldı.
                         } else {
                             $buyPriceCounter++;
@@ -108,8 +114,7 @@ trait BinanceTrait
                     }
                 }
             } catch (\Exception $e) {
-                LogHelper::log(2, $this->coinId, "Price Error", "Para Birimi Alınamadı. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
-                $this->context->error("Para Birimi Alınamadı. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
+                $this->log(ConsoleMessageType::ERROR, $this->coinId, "Price Error", "Para Birimi Alınamadı. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
 
@@ -168,13 +173,11 @@ trait BinanceTrait
                     $order->save();
                     return $order->id;
                 } else {
-                    LogHelper::log(1, $this->coinId, "buyCoin Status Error", "Satın alma limit farklı status değerine sahip. Data: " . json_encode($buyStatus));
-                    $this->context->error("Satın alma limit farklı status değerine sahip. Data: " . json_encode($buyStatus));
+                    $this->log(ConsoleMessageType::ERROR, $this->coinId, "buyCoin Status Error", "Satın alma limit farklı status değerine sahip. Data: " . json_encode($buyStatus));
                     sleep(2);
                 }
             } catch (\Exception $e) {
-                LogHelper::log(2, $this->coinId, "buyCoin Limit Error", "Satın Alma Limit Başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
-                $this->context->error("Satın Alma Limit Başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
+                $this->log(ConsoleMessageType::ERROR, $this->coinId, "buyCoin Limit Error", "Satın Alma Limit Başarısız. Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
         }
@@ -428,13 +431,11 @@ trait BinanceTrait
                     }
                     return true;
                 } else {
-                    LogHelper::log(1, $this->coinId, "Cancel Error", "Cancel Edilirken Bir Hata Oluştu. Data: " . json_encode($cancelStatus));
-                    $this->context->error("Cancel Edilirken Bir Hata Oluştu. Data: " . json_encode($cancelStatus));
+                    $this->log(ConsoleMessageType::ERROR, $this->coinId, "Cancel Error", "Cancel Edilirken Bir Hata Oluştu. Data: " . json_encode($cancelStatus));
                     sleep(2);
                 }
             } catch (\Exception $e) {
-                LogHelper::log(2, $this->coinId, "Order Cancel", "Order Cancel Başarısız Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
-                $this->context->error("Order Cancel Başarısız Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
+                $this->log(ConsoleMessageType::ERROR, $this->coinId, "Order Cancel", "Order Cancel Başarısız Detay: " . $e->getMessage() . " Satır: " . $e->getLine());
                 sleep(5);
             }
         }
@@ -474,7 +475,7 @@ trait BinanceTrait
      * @param $price
      * @return int
      */
-    function getCoinPriceDigit($price)
+    function getCoinPriceDigit($price): int
     {
         $exp = explode(".", strval($price));
         if (count($exp) > 1) {
