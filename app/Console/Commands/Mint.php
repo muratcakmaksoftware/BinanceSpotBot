@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\ConsoleMessageType;
 use App\Models\Coin;
 use App\Models\Order;
+use App\Traits\BinanceFakerTrait;
 use App\Traits\BinanceTrait;
 use App\Traits\LogTrait;
 use App\Traits\MessageTrait;
@@ -17,12 +18,14 @@ class Mint extends Command
     use LogTrait;
     use BinanceTrait;
     use MessageTrait;
+    use BinanceFakerTrait;
 
     protected $signature = 'mint
                                 {--coin : Spot yapılacak coin}
                                 {--currency : Satış yapılacak para birimi}
                                 {--maxWalletPriceLimit : Maksimum cüzdandan çekilecek para miktarı}
-                                {--stabilizationSensitivity : Stabilizasyon aralığı kontrol sayısı}';
+                                {--stabilizationSensitivity : Stabilizasyon aralığı kontrol sayısı}
+                                {--testMode=false : Test modunda tamamen localde çalışır}';
 
     protected $description = 'Darphanem V3';
 
@@ -121,9 +124,15 @@ class Mint extends Command
      */
     protected $walletCurrency = 0;
 
+    /**
+     * Fake datalar üretip localde test etmemizi sağlar.
+     * @var bool
+     */
+    protected $testMode = false;
+
     public function handle()
     {
-        //php artisan mint --coin MATIC --currency USDT --maxWalletPriceLimit 100 --stabilizationSensitivity 50
+        //php artisan mint --coin MATIC --currency USDT --maxWalletPriceLimit 100 --stabilizationSensitivity 50 --testMode true
         $this->api = new Binance\API(base_path('public/binance/config.json'));
         $this->api->caOverride = true;
 
@@ -134,6 +143,7 @@ class Mint extends Command
         $this->currency = strtoupper($this->argument("currency")); //Ex: TRY
         $this->maxWalletPriceLimit = intval($this->argument("maxWalletPriceLimit")); //Ex: $20 cüzdandaki kullanılacak para miktarı.
         $this->stabilizationSensitivity = intval($this->argument("stabilizationSensitivity"));
+        $this->testMode = (bool)$this->argument("testMode");
 
         $coin = Coin::where("name", $this->coinName)->first();
         if (isset($coin)) {

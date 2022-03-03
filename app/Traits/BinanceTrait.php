@@ -150,7 +150,12 @@ trait BinanceTrait
                    "side":"BUY",
                    "fills":[]
                 }*/
-                $buyStatus = $this->api->buy($spot, $buyPiece, $buyPrice);
+                if($this->testMode){
+                    $buyStatus = $this->buyFaker($spot, $buyPiece, $buyPrice);
+                }else{
+                    $buyStatus = $this->api->buy($spot, $buyPiece, $buyPrice);
+                }
+
 
                 //SİPARİŞ BINANCE TARAFINDAN KABUL EDİLDİ Mİ?
                 //NEW = Sipariş motor tarafından kabul edildi
