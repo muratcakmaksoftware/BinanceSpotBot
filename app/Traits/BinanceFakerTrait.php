@@ -4,15 +4,26 @@ namespace App\Traits;
 
 trait BinanceFakerTrait
 {
+    private $minPrice = 1; // Fiyat
+    private $maxPrice = 500;
+
+    private $minQuanty = 1; // Miktar
+    private $maxQuanty = 500;
+
+    private $maxFakeOrder = 3; // Emir sayısı -- 0 verildiğinde order üretmeyecektir.
+
+    private $minWalletAvailable = 100; // Cüzdandaki para miktarı
+    private $maxWalletAvailable = 1000;
+
     /**
-     * Satın almada fake data üretir.
+     * Satın almada rastgele veri üretir.
      *
      * @param $spot
      * @param $buyPiece
      * @param $buyPrice
      * @return array
      */
-    public function buyFaker($spot, $buyPiece, $buyPrice): array
+    public function buyFake($spot, $buyPiece, $buyPrice): array
     {
         return [
             "symbol" => $spot, //MATICUSDT
@@ -32,12 +43,177 @@ trait BinanceFakerTrait
         ];
     }
 
-    public function openOrdersFaker($spot)
+    /**
+     * Belirtilen maksimum sayı kadar rastgele açık emir üretir.
+     *
+     * @param $spot
+     * @return array
+     */
+    public function openOrdersFake($spot)
     {
-        // birden fazla order olabilir ona gore yazilmasi lazim ornegin 2 tane MATICUSDT ve 1 tane ADAUSDT
+        if ($this->maxFakeOrder > 0) {
+            $orders = [];
+            $randOrder = rand(1, $this->maxFakeOrder);
+            $count = 0;
+            while ($randOrder > $count) {
+                $orders[$count] = [
+                    "symbol" => $spot, // MATICTRY
+                    "orderId" => $this->randomOrderId(), // 17142850
+                    "orderListId" => -1,
+                    "clientOrderId" => "web_3f5c4f5cabd442c9857ab71ddd244b87",
+                    "price" => $this->randomPrice(), // 12.50000000
+                    "origQty" => $this->randomQuanty(), // 559.90000000
+                    "executedQty" => "0.00000000",
+                    "cummulativeQuoteQty" => "0.00000000",
+                    "status" => "NEW",
+                    "timeInForce" => "GTC",
+                    "type" => "LIMIT",
+                    "side" => $this->randomSide(), // SELL
+                    "stopPrice" => "0.00000000",
+                    "icebergQty" => "0.00000000",
+                    "time" => 1633867470193,
+                    "updateTime" => 1633867470193,
+                    "isWorking" => true,
+                    "origQuoteOrderQty" => "0.00000000",
+                ];
+
+                $count++;
+            }
+            return $orders;
+        } else {
+            return [];
+        }
     }
 
     /**
+     * Sahte emir durumu üretir.
+     * !!!Array içeriği eksik!!!
+     *
+     * @param $spot
+     * @param $orderId
+     * @return array
+     */
+    public function orderStatusFake($spot, $orderId)
+    {
+        return [
+            "status" => $this->randomStatus(),
+            "orderId" => $orderId,
+            "symbol" => $spot,
+        ];
+    }
+
+    /**
+     * Gelen emri iptal etme.
+     *
+     * @param $order
+     * @return array
+     */
+    public function cancelFake($order)
+    {
+        return [
+            "symbol" => $order->symbol, // LTCBTC
+            "origClientOrderId" => "myOrder1",
+            "orderId" => $order->orderId, // 4
+            "orderListId" => -1, //Unless part of an OCO, the value will always be -1.
+            "clientOrderId" => "cancelMyOrder1",
+            "price" => $order->price, // 2.00000000
+            "origQty" => $order->origQty, // 1.00000000
+            "executedQty" => "0.00000000",
+            "cummulativeQuoteQty" => "0.00000000",
+            "status" => "CANCELED",
+            "timeInForce" => "GTC",
+            "type" => "LIMIT",
+            "side" => "BUY"
+        ];
+    }
+
+    /**
+     * Sahte komisyon bilgisi üretir.
+     *
+     * @param $spot
+     * @return array[]
+     */
+    public function getCommissionFake($spot)
+    {
+        return [
+            [
+                "symbol" => $spot, // XRPUSDT
+                "makerCommission" => "0.001",
+                "takerCommission" => "0.001",
+            ]
+        ];
+    }
+
+    /**
+     * Sahte cüzdan bilgisi üretir.
+     * !!!Kullanılmadı!!!
+     *
+     * @return float[]
+     */
+    public function pricesFake()
+    {
+        return [
+            "available" => 0.07340000,
+            "onOrder" => 100.00000000,
+            "btcValue" => 0.00000170,
+            "btcTotal" => 0.00232070
+        ];
+    }
+
+    /**
+     * Sahte cüzdan bakiyesi üretir.
+     *
+     * @return array
+     */
+    public function balancesFake()
+    {
+        return [
+            "available" => $this->randomWalletAvailable()
+        ];
+    }
+
+    /**
+     * Sahte fiyat bilgisi üretir.
+     *
+     * @param $spot
+     * @return float|int
+     */
+    public function priceFake($spot)
+    {
+        return $this->randomPrice();
+    }
+
+    /**
+     * Sahte satış emri bilgisi üretir.
+     *
+     * @param $spot
+     * @param $sellPiece
+     * @param $sellPrice
+     * @return array
+     */
+    public function sellFake($spot, $sellPiece, $sellPrice)
+    {
+        return [
+            "symbol" => $spot, // MATICUSDT
+            "orderId" => $this->randomOrderId(), // 1153061673
+            "orderListId" => -1,
+            "clientOrderId" => "NNLDOPoudQOWe2ThA4V76a",
+            "transactTime" => 1634406294188,
+            "price" => $sellPrice, // 1.52100000
+            "origQty" => $sellPiece, // 12.90000000
+            "executedQty" => "0.00000000",
+            "cummulativeQuoteQty" => "0.00000000",
+            "status" => "NEW",
+            "timeInForce" => "GTC",
+            "type" => "LIMIT",
+            "side" => "SELL",
+            "fills" => []
+        ];
+    }
+
+    /**
+     * Rastgele Order ID üretir.
+     *
      * @return int
      */
     public function randomOrderId()
@@ -45,14 +221,69 @@ trait BinanceFakerTrait
         return rand(90000, 99999999);
     }
 
+    /**
+     * Float ya da int rastgele fiyat üretir.
+     *
+     * @return float|int
+     */
     public function randomPrice()
     {
-        //belirledigimiz digit kadar rasgele price uretilecek
+        if (rand(0, 1) == 0) { // float veya int
+            return rand($this->minPrice, $this->maxPrice);
+        } else {
+            return rand($this->minPrice, $this->maxPrice - 1) + (rand(0, 99999999) / 100000000);
+        }
     }
 
-    public function randomPiece()
+    /**
+     * Float ya da int rastgele miktar üretir.
+     *
+     * @return float|int
+     */
+    public function randomQuanty()
     {
-
+        if (rand(0, 1) == 0) { // float veya int
+            return rand($this->minQuanty, $this->maxQuanty);
+        } else {
+            return rand($this->minQuanty, $this->maxQuanty - 1) + (rand(0, 99999999) / 100000000);
+        }
     }
 
+    /**
+     * Rastgele BUY ya da SELL dönderecek.
+     *
+     * @return string
+     */
+    public function randomSide()
+    {
+        if (rand(0, 1) == 0) {
+            return "BUY";
+        } else {
+            return "SELL";
+        }
+    }
+
+    /**
+     * Rastgele durum üretir. FILLED ya da CANCELED
+     *
+     * @return string
+     */
+    public function randomStatus()
+    {
+        if (rand(0, 1) == 0) {
+            return "FILLED";
+        } else {
+            return "CANCELED";
+        }
+    }
+
+    /**
+     * Rastgele cüzdan bakiyesi üretir.
+     *
+     * @return int
+     */
+    public function randomWalletAvailable(): int
+    {
+        return rand($this->minWalletAvailable, $this->maxWalletAvailable);
+    }
 }
