@@ -56,7 +56,7 @@ trait BinanceFakerTrait
             $randOrder = rand(1, $this->maxFakeOrder);
             $count = 0;
             while ($randOrder > $count) {
-                $orders[$count] = [
+                $orders[] = [
                     "symbol" => $spot, // MATICTRY
                     "orderId" => $this->randomOrderId(), // 17142850
                     "orderListId" => -1,

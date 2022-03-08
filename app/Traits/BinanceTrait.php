@@ -378,7 +378,13 @@ trait BinanceTrait
                         if ($this->spot == $openOrder["symbol"]) { // SPOT bilgisine göre işlem gerçekleştirilecek farklı coinlerde spot olabilir.
                             if ($openOrder["side"] == "BUY") { //LIMIT EMRI BUY MI ? Daha önce satın alınmamış olduğundan direk buy işlemi iptal edilecek.
                                 $this->orderLog(ConsoleMessageType::WARNING, "Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak. ", $this->uniqueId);
-                                $cancelStatus = $this->api->cancel($openOrder["symbol"], $openOrder["orderId"]);
+
+                                if ($this->testMode) {
+                                    $cancelStatus = $this->cancelFake($openOrder);
+                                } else {
+                                    $cancelStatus = $this->api->cancel($openOrder["symbol"], $openOrder["orderId"]);
+                                }
+
                                 if ($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
                                     $this->orderLog(ConsoleMessageType::WARNING, "Önceki satın alım limiti başarıyla iptal edildi!", $this->uniqueId);
                                 } else {

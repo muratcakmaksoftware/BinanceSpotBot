@@ -133,9 +133,11 @@ class Mint extends Command
     public function handle()
     {
         //php artisan mint --coin MATIC --currency USDT --maxWalletPriceLimit 100 --stabilizationSensitivity 50 --testMode true
-        $this->api = new Binance\API(base_path('public/binance/config.json'));
-        $this->api->caOverride = true;
-
+        if (!$this->testMode) {
+            $this->api = new Binance\API(base_path('public/binance/config.json'));
+            $this->api->caOverride = true;
+        }
+        
         /**
          * Sets Argument
          */

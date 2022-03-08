@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 
 class BuyAndSellMint extends Command
 {
-    protected $signature = 'mint {coin} {currency} {maxWalletPriceLimit}';
+    protected $signature = 'oldmint {coin} {currency} {maxWalletPriceLimit}';
 
     protected $description = 'Darphanem';
 
