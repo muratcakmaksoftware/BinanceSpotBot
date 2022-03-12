@@ -80,26 +80,31 @@ trait BinanceTrait
      */
     function getStabilizationPrice($spot, $coinPurchase, $sensitivity): float
     {
-
         $price = -1; //şu anda olan coin para birimi
         $priceUpLimit = -1; //şu anda olan coin biriminin sirkülasyon maks üst aralığı
         $priceDownLimit = -1; //şu anda olan coin biriminin sirkülasyon min alt aralığı
         $priceMaxMinStatus = false; // sirkülasyon aralığıbelirlenmiş mi ?
         $priceDiff = -1; //coin para briminin aralık farkının alınması
         $buyPriceCount = $sensitivity; //her 1 saniye de belirtlen X kere aynı para birim aralığındaysa limit emriyle satın alma işlemi gerçekleştirilecek.
-        $buyPriceCounter = 0;
+        $buyPriceCounter = 1;
 
         while (true) {
 
             try {
                 if ($this->testMode) {
-                    $price = floatval($this->priceFake($spot));
+                    if($priceUpLimit != -1 && $priceDownLimit != -1){
+                        $price = floatval($this->priceFake($priceDownLimit, $priceUpLimit));
+                    }else{
+                        $price = floatval($this->priceFake());
+                    }
                 } else {
                     $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
                 }
 
                 if ($priceMaxMinStatus == false) {
+                    $coinDigit = pow(10, $this->getCoinPriceDigit($price));
                     $priceDiff = $price * $coinPurchase;
+                    $priceDiff = ceil($priceDiff * $coinDigit) / $coinDigit; //kusurat duzeltme örn: 1.2359069 => 1.23591
                     $priceUpLimit = $price + $priceDiff;
                     $priceDownLimit = $price - $priceDiff;
                     $priceMaxMinStatus = true;
@@ -113,10 +118,10 @@ trait BinanceTrait
                     $this->consoleMessage(ConsoleMessageType::WARNING, $buyPriceCounter . ". Stabilitesi ölçülüyor #   " . $spot . ": " . $price . "   # " . $buyPriceCounter . " == " . $buyPriceCount . " # " . Carbon::now()->format("d.m.Y H:i:s"), false);
                     if ($price > $priceUpLimit) { //max değeri aşılmış
                         $priceMaxMinStatus = false; //tekrardan min ve maks değeri belirle
-                        $buyPriceCounter = 0;
+                        $buyPriceCounter = 1;
                     } else if ($priceDownLimit > $price) { //min değeri aşılmış
                         $priceMaxMinStatus = false; //tekrardan min ve maks değeri belirle
-                        $buyPriceCounter = 0;
+                        $buyPriceCounter = 1;
                     } else { //Belirtilen min maks değerinin içerisinde
                         if ($buyPriceCounter == $buyPriceCount) { //aralık aynı seyirde devam ettiyse girer.
                             $this->consoleMessage(ConsoleMessageType::WARNING, "Stabilitesi Bulundu: " . $price, false);
@@ -140,9 +145,9 @@ trait BinanceTrait
      * @param $spot
      * @param $buyPiece
      * @param $buyPrice
-     * @return mixed
+     * @return Order
      */
-    function buyCoin($spot, $buyPiece, $buyPrice)
+    function buyCoin($spot, $buyPiece, $buyPrice): Order
     {
         while (true) {
             try {
@@ -189,7 +194,7 @@ trait BinanceTrait
                     $order->var_price = $buyPrice;
                     $order->json_data = json_encode($buyStatus);
                     $order->save();
-                    return $order->id;
+                    return $order;
                 } else {
                     $this->log(ConsoleMessageType::ERROR, $this->coinId, "buyCoin Status Error", "Satın alma limit farklı status değerine sahip. Data: " . json_encode($buyStatus));
                     sleep(2);
@@ -214,25 +219,30 @@ trait BinanceTrait
                 if ($this->testMode) {
                     $orderStatus = $this->orderStatusFake($spot, $order->orderId);
                 } else {
+                    //$orderStatus["status"] = FILLED -> işlem gerçekleşmiş /// $orderStatus["status"] == "CANCELED" sipariş iptal edildiyse
                     $orderStatus = $this->api->orderStatus($spot, $order->orderId);
                 }
-                //işlem gerçekleşmiş. filled = Sipariş tamamlandı /// $orderStatus["status"] == "CANCELED" sipariş iptal edildiyse
-                $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
+
+                if ($this->testMode) {
+                    $price = $this->priceFake();
+                } else {
+                    $price = floatval($this->api->price($spot)); //örnek çıktı: 1.06735000
+                }
 
                 if ($orderStatus["status"] == "FILLED") { //SATILMA İŞLEMİ GERÇEKLEŞMİŞ
                     $order->status = $orderStatus["status"];
                     $order->fee = floatval($order->price) * (floatval($order->origQty) * $this->fee); //toplam kesilen komisyon doları
                     $order->total = floatval($order->price) * floatval($order->origQty); // toplam ödenen para
                     $order->save();
-                    $this->consoleMessage(ConsoleMessageType::WARNING, $order->side . " # " . $spot . " # durumu # " . $order->status . " # " . floatval($order->price) . " >= " . $price . " # işlem başarıyla gerçekleşti! # ");
+                    $this->consoleMessage(ConsoleMessageType::WARNING, $order->side . " # " . $spot . " # durumu # " . $order->status . " # " . floatval($order->price) . " >= " . $price . " # işlem başarıyla gerçekleşti! #");
                     return true; //işlem gerçekleşmiş.
                 } else { //DİĞER DURUM KONTROLLERİ
-                    $this->consoleMessage(ConsoleMessageType::WARNING, $order->side . " # " . $spot . " # durumu # " . $order->status . " # " . floatval($order->price) . " >= " . $price . " # işlemin gerçekleşmesi bekleniyor. # ");
+                    $this->consoleMessage(ConsoleMessageType::WARNING, $order->side . " # " . $spot . " # durumu # " . $order->status . " # " . floatval($order->price) . " >= " . $price . " # işlemin gerçekleşmesi bekleniyor. #");
 
                     //STOP-LIMIT Kontrolü
-                    if ($order->side == "SELL") { //ORDER İŞLEMİ SATIŞ İŞLEMİYSE
+                    if ($order->side == "SELL") { //SİPARİŞ(ORDER) İŞLEMİ SATIŞ İŞLEMİYSE
 
-                        if ($this->lossToleranceStatus) { // Kayıp toleransı aktif mi ?
+                        if ($this->lossToleranceStatus) { // Kayıp toleransı aktif mi ? Yani Satış siparişi var ve bu satış işlemimiz tolerans ettiğimiz satın aldığımız fiyattan aşağı düşmüşse harekete geçer.
                             if (!isset($orderBuy)) {
                                 $orderBuy = Order::where("unique_id", $order->unique_id)->where("side", "BUY")->first(); //BU UNIQUE_ID AIT BUY ISLEMININ ORDER BILGISININ ALINMASI.
                             }
@@ -271,9 +281,9 @@ trait BinanceTrait
      * @param $spot
      * @param $sellPiece
      * @param $sellPrice
-     * @return mixed
+     * @return Order
      */
-    function sellCoin($spot, $sellPiece, $sellPrice)
+    function sellCoin($spot, $sellPiece, $sellPrice): Order
     {
         while (true) {
             try {
@@ -319,7 +329,7 @@ trait BinanceTrait
                     $order->json_data = json_encode($sellStatus);
                     $order->save();
 
-                    return $order->id;
+                    return $order;
                 } else {
                     $this->log(ConsoleMessageType::ERROR, $this->coinId, "sellCoin Status Error", "Satış yapma limiti farklı status değerine sahip. Data: " . json_encode($sellStatus));
                     sleep(2);
@@ -339,6 +349,10 @@ trait BinanceTrait
     function waitOpenOrders(): bool
     {
         while (true) {
+            if($this->testMode){
+                return true;
+            }
+
             try {
                 /*
                  array:1 [
@@ -364,53 +378,46 @@ trait BinanceTrait
                       ]
                     ]
                  * */
-                if ($this->testMode) {
-                    $openOrders = $this->openOrdersFake($this->spot);
-                } else {
-                    $openOrders = $this->api->openOrders($this->spot);
-                }
+
+                $openOrders = $this->api->openOrders($this->spot); //SPOT adına göre açık emir bilgilerini getirir. Sadece o spota ait olan emirler gelecektir.
+
                 //dd($openOrders);
                 if (count($openOrders) > 0) { //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
                     // limitin gerçekleşmesi bekleniyor.
                     $this->orderLog(ConsoleMessageType::WARNING, "Önceden koyulmuş limitin gerçekleşmesi bekleniyor.", $this->uniqueId);
                     //Limit durumuna göre iptal veya yeniden limit oluşturulması
                     foreach ($openOrders as $openOrder) {
-                        if ($this->spot == $openOrder["symbol"]) { // SPOT bilgisine göre işlem gerçekleştirilecek farklı coinlerde spot olabilir.
-                            if ($openOrder["side"] == "BUY") { //LIMIT EMRI BUY MI ? Daha önce satın alınmamış olduğundan direk buy işlemi iptal edilecek.
-                                $this->orderLog(ConsoleMessageType::WARNING, "Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak. ", $this->uniqueId);
 
-                                if ($this->testMode) {
-                                    $cancelStatus = $this->cancelFake($openOrder);
-                                } else {
-                                    $cancelStatus = $this->api->cancel($openOrder["symbol"], $openOrder["orderId"]);
-                                }
+                        if ($openOrder["side"] == "BUY") { //LIMIT EMRI BUY MI ? Daha önce satın alınmamış olduğundan direk buy işlemi iptal edilecek.
+                            $this->orderLog(ConsoleMessageType::WARNING, "Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak. ", $this->uniqueId);
 
-                                if ($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
-                                    $this->orderLog(ConsoleMessageType::WARNING, "Önceki satın alım limiti başarıyla iptal edildi!", $this->uniqueId);
-                                } else {
-                                    $this->log(ConsoleMessageType::ERROR, $this->coinId, "Cancel Error", "Cancel Edilirken Bir Hata Oluştu. Data: " . json_encode($cancelStatus));
-                                }
-                            } else if ($openOrder["side"] == "SELL") { //LIMIT EMRI SELL mi ?
-                                $order = Order::where("orderId", $openOrder["orderId"])->first();
-                                if (isset($order)) {
-                                    if ($order->side == "SELL") {
-                                        $this->orderLog(ConsoleMessageType::WARNING, "Önceki Satım limiti kontrol ediliyor.", $this->uniqueId, $order->orderId);
-                                        //Önceki Satış limiti gerçekleşmiş mi ?
-                                        if ($this->getOrderStatus($order->symbol, $order)) {
-                                            $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti Zaten Gerçekleşmiş!", $order->unique_id, $order->orderId);
-                                        } else {//Eğer $lossToleranceStatus aktif ise önceki limit iptal edilir.
-                                            $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti İptal Ediliyor!", $order->unique_id, $order->orderId);
-                                            $this->orderCancel($order);
-                                            $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti Başarıyla İptal Edildi!", $order->unique_id, $order->orderId);
-                                        }
-                                    } else {
-                                        $this->consoleMessage(ConsoleMessageType::WARNING, "Database OpenOrder Bilinmeyen durum Order => " . $order->side);
-                                    }
-                                }//else order bulunamadı işlem yapılmayacak
+                            $cancelStatus = $this->api->cancel($openOrder["symbol"], $openOrder["orderId"]);
+
+                            if ($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
+                                $this->orderLog(ConsoleMessageType::WARNING, "Önceki satın alım limiti başarıyla iptal edildi!", $this->uniqueId);
                             } else {
-                                $this->consoleMessage(ConsoleMessageType::WARNING, "API OpenOrder Bilinmeyen durum Order => " . $openOrder["side"]);
+                                $this->log(ConsoleMessageType::ERROR, $this->coinId, "Cancel Error", "Cancel Edilirken Bir Hata Oluştu. Data: " . json_encode($cancelStatus));
                             }
-                        } //sembole göre kontrol
+                        } else if ($openOrder["side"] == "SELL") { //LIMIT EMRI SELL mi ?
+                            $order = Order::where("orderId", $openOrder["orderId"])->first(); //Senaryo sell satışı yapılırken programda elektrikler kesildi ve tekrar programın akışında sell emri açık kaldı binance tarafında bizde bunu veritabanından orderId bilgisini alarak devam ettiriyoruz.
+                            if (isset($order)) {
+                                if ($order->side == "SELL") {
+                                    $this->orderLog(ConsoleMessageType::WARNING, "Önceki Satım limiti kontrol ediliyor.", $this->uniqueId, $order->orderId);
+                                    //Önceki Satış limiti gerçekleşmiş mi ?
+                                    if ($this->getOrderStatus($order->symbol, $order)) {
+                                        $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti Zaten Gerçekleşmiş!", $order->unique_id, $order->orderId);
+                                    } else {//Eğer $lossToleranceStatus aktif ise önceki limit iptal edilir.
+                                        $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti İptal Ediliyor!", $order->unique_id, $order->orderId);
+                                        $this->orderCancel($order);
+                                        $this->orderLog(ConsoleMessageType::INFO, "Önceki Satış Limiti Başarıyla İptal Edildi!", $order->unique_id, $order->orderId);
+                                    }
+                                } else {
+                                    $this->consoleMessage(ConsoleMessageType::WARNING, "Database OpenOrder Bilinmeyen durum Order => " . $order->side);
+                                }
+                            }//else order bulunamadı işlem yapılmayacak
+                        } else {
+                            $this->consoleMessage(ConsoleMessageType::WARNING, "API OpenOrder Bilinmeyen durum Order => " . $openOrder["side"]);
+                        }
                     }
 
                     sleep(2);
@@ -452,11 +459,8 @@ trait BinanceTrait
                     "side": "BUY"
                     }
                  * */
-                if ($this->testMode) {
-                    $cancelStatus = $this->cancelFake($order); // Doğru veri üretilebilmesi için emrin diğer detayları gönderildi.
-                } else {
-                    $cancelStatus = $this->api->cancel($order->symbol, $order->orderId);
-                }
+
+                $cancelStatus = $this->api->cancel($order->symbol, $order->orderId);
 
                 if ($cancelStatus["status"] == "CANCELED") { //Limit emri iptal edildi.
                     $order->status = "CANCELED";
@@ -488,11 +492,7 @@ trait BinanceTrait
      */
     public function sellLossTolerance($order)
     {
-        if ($this->testMode) {
-            $price = floatval($this->priceFake($order->symbol));
-        } else {
-            $price = floatval($this->api->price($order->symbol)); //örnek çıktı: 1.06735000 // Zarar satış limiti koyulacak para biriminin güncel değerini alınıyor.
-        }
+        $price = floatval($this->api->price($order->symbol)); //örnek çıktı: 1.06735000 // Zarar satış limiti koyulacak para biriminin güncel değerini alınıyor.
 
         $coinDigit = pow(10, $this->getCoinPriceDigit($price)); //coinin basamak değeri alınıyor.
         $price = $price - ($price * 0.005); //para biriminin altına satış yaparak anlık satışı gerçekleştirebiliriz. bu yüzden para biriminin biraz düşük rakamını alıp satış yapılacak.

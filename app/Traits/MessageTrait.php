@@ -17,13 +17,13 @@ trait MessageTrait
     {
         switch ($messageType){
             case ConsoleMessageType::INFO:
-                $this->info($message.' '. ($time ? ' '.Carbon::now()->format("d.m.Y H:i:s") : ''));
+                $this->info($message.' '. ($time ? ' ### '.Carbon::now()->format("d.m.Y H:i:s") : ''));
                 break;
             case ConsoleMessageType::WARNING:
-                $this->warn($message.' '. ($time ? ' '.Carbon::now()->format("d.m.Y H:i:s") : ''));
+                $this->warn($message.' '. ($time ? ' ### '.Carbon::now()->format("d.m.Y H:i:s") : ''));
                 break;
             case ConsoleMessageType::ERROR:
-                $this->error($message.' '. ($time ? ' '.Carbon::now()->format("d.m.Y H:i:s") : ''));
+                $this->error($message.' '. ($time ? ' ### '.Carbon::now()->format("d.m.Y H:i:s") : ''));
                 break;
         }
     }

@@ -50,16 +50,16 @@ trait LogTrait
      * @param int|null $orderId
      * @return void
      */
-    public function orderLog(int $type, string $description, string $unique_id = null, int $orderId = null){
+    public function orderLog(int $type, string $description, string $unique_id = null, int $orderId = null, $time = true){
         switch ($type){
             case ConsoleMessageType::INFO:
-                $this->info($description.' '. Carbon::now()->format("d.m.Y H:i:s"));
+                $this->info($description. ($time == true ? ' ### '.Carbon::now()->format("d.m.Y H:i:s") : ''));
                 break;
             case ConsoleMessageType::WARNING:
-                $this->warn($description.' '. Carbon::now()->format("d.m.Y H:i:s"));
+                $this->warn($description. ($time == true ? ' ### '.Carbon::now()->format("d.m.Y H:i:s") : ''));
                 break;
             case ConsoleMessageType::ERROR:
-                $this->error($description.' '. Carbon::now()->format("d.m.Y H:i:s"));
+                $this->error($description. ($time == true ? ' ### '.Carbon::now()->format("d.m.Y H:i:s") : ''));
                 break;
         }
 
