@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Anamakine: 127.0.0.1
--- Üretim Zamanı: 14 Şub 2022, 18:26:32
+-- Üretim Zamanı: 02 Nis 2022, 16:37:58
 -- Sunucu sürümü: 10.4.17-MariaDB
 -- PHP Sürümü: 7.3.27
 
@@ -30,20 +30,22 @@ CREATE TABLE `coins` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `profit` decimal(10,5) DEFAULT NULL,
-  `purchase` decimal(10,5) DEFAULT NULL
+  `purchase` decimal(10,5) DEFAULT NULL,
+  `spot_digit` tinyint(4) DEFAULT 1 COMMENT '0 girilirse tam sayı olarak adet satışı yapar.\r\n1 girilirse 10^1 yani 10 dur.\r\n2 girilirse 10^2 yani 100 dür'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Tablo döküm verisi `coins`
 --
 
-INSERT INTO `coins` (`id`, `name`, `profit`, `purchase`) VALUES
-(1, 'ADA', '0.00850', '0.00150'),
-(2, 'TRX', '0.00800', '0.00400'),
-(3, 'DOGE', '0.00010', '0.00400'),
-(4, 'VET', '0.00800', '0.00400'),
-(5, 'XRP', '0.00800', '0.00400'),
-(6, 'MATIC', '0.00800', '0.00150');
+INSERT INTO `coins` (`id`, `name`, `profit`, `purchase`, `spot_digit`) VALUES
+(1, 'ADA', '0.00850', '0.00150', 1),
+(2, 'TRX', '0.00800', '0.00400', 1),
+(3, 'DOGE', '0.00010', '0.00400', 1),
+(4, 'VET', '0.00800', '0.00400', 1),
+(5, 'XRP', '0.00800', '0.00300', 0),
+(6, 'MATIC', '0.00800', '0.00150', 1),
+(7, 'BNB', '0.02000', '0.00150', 3);
 
 -- --------------------------------------------------------
 
@@ -61,6 +63,13 @@ CREATE TABLE `logs` (
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+--
+-- Tablo döküm verisi `logs`
+--
+
+INSERT INTO `logs` (`id`, `type`, `coin_id`, `title`, `description`, `created_at`, `updated_at`) VALUES
+(835, 3, 7, 'buyCoin Limit Error', 'Satın Alma Limit Başarısız. Detay: signedRequest error: {\"code\":-1013,\"msg\":\"Invalid quantity.\"} Satır: 1350', '2022-04-02 12:21:17', '2022-04-02 12:21:17');
+
 -- --------------------------------------------------------
 
 --
@@ -69,7 +78,7 @@ CREATE TABLE `logs` (
 
 CREATE TABLE `orders` (
   `id` bigint(11) NOT NULL,
-  `unique_id` varchar(255) NOT NULL,
+  `unique_id` varchar(255) DEFAULT NULL,
   `coin_id` int(11) NOT NULL,
   `orderId` bigint(20) NOT NULL,
   `symbol` varchar(255) NOT NULL,
@@ -86,6 +95,14 @@ CREATE TABLE `orders` (
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Tablo döküm verisi `orders`
+--
+
+INSERT INTO `orders` (`id`, `unique_id`, `coin_id`, `orderId`, `symbol`, `side`, `origQty`, `price`, `type`, `status`, `fee`, `total`, `var_piece`, `var_price`, `json_data`, `created_at`, `updated_at`) VALUES
+(95, '6402649206248513775ce18.48516363', 5, 4230739804, 'XRPUSDT', 'BUY', '141.00000000', '0.84590000', 'LIMIT', 'FILLED', '0.11927190', '119.27190000', '141.00000000', '0.84590000', '{\"symbol\":\"XRPUSDT\",\"orderId\":4230739804,\"orderListId\":-1,\"clientOrderId\":\"gGMXSi8p9MTHH6uBqIBv76\",\"transactTime\":1648906597483,\"price\":\"0.84590000\",\"origQty\":\"141.00000000\",\"executedQty\":\"141.00000000\",\"cummulativeQuoteQty\":\"119.27190000\",\"status\":\"FILLED\",\"timeInForce\":\"GTC\",\"type\":\"LIMIT\",\"side\":\"BUY\",\"fills\":[{\"price\":\"0.84590000\",\"qty\":\"141.00000000\",\"commission\":\"0.14100000\",\"commissionAsset\":\"XRP\",\"tradeId\":434744502}]}', '2022-04-02 13:36:37', '2022-04-02 13:36:38'),
+(96, '6402649206248513775ce18.48516363', 5, 4230739817, 'XRPUSDT', 'SELL', '140.00000000', '0.85560000', 'LIMIT', 'NEW', '0.00000000', '0.00000000', '140.00000000', '0.85560000', '{\"symbol\":\"XRPUSDT\",\"orderId\":4230739817,\"orderListId\":-1,\"clientOrderId\":\"RqwUL5yYs7WktQLS9NkY90\",\"transactTime\":1648906598728,\"price\":\"0.85560000\",\"origQty\":\"140.00000000\",\"executedQty\":\"0.00000000\",\"cummulativeQuoteQty\":\"0.00000000\",\"status\":\"NEW\",\"timeInForce\":\"GTC\",\"type\":\"LIMIT\",\"side\":\"SELL\",\"fills\":[]}', '2022-04-02 13:36:39', '2022-04-02 13:36:39');
 
 -- --------------------------------------------------------
 
@@ -107,61 +124,42 @@ CREATE TABLE `order_logs` (
 --
 
 INSERT INTO `order_logs` (`id`, `unique_id`, `orderId`, `description`, `created_at`, `updated_at`) VALUES
-(2388, NULL, NULL, '6', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2389, NULL, NULL, 'MATIC', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2390, NULL, NULL, 'USDT', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2391, NULL, NULL, 'MATICUSDT', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2392, NULL, NULL, '0.00800 USDT', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2393, NULL, NULL, '0.00150', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2394, '526824759617ba7e8609031.60563416', NULL, '-------------------------------', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2395, '526824759617ba7e8609031.60563416', NULL, '1-SPOT ALGORITHM START: 29.10.2021 07:51:04', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2396, '526824759617ba7e8609031.60563416', NULL, '1-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...', '2021-10-29 07:51:04', '2021-10-29 07:51:04'),
-(2397, NULL, NULL, '6', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2398, NULL, NULL, 'MATIC', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2399, NULL, NULL, 'USDT', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2400, NULL, NULL, 'MATICUSDT', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2401, NULL, NULL, '0.00800 USDT', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2402, NULL, NULL, '0.00150', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2403, '11263975617ba81dddb5c4.16310081', NULL, '-------------------------------', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2404, '11263975617ba81dddb5c4.16310081', NULL, '1-SPOT ALGORITHM START: 29.10.2021 07:51:57', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2405, '11263975617ba81dddb5c4.16310081', NULL, '1-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...', '2021-10-29 07:51:57', '2021-10-29 07:51:57'),
-(2406, NULL, NULL, '6', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2407, NULL, NULL, 'MATIC', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2408, NULL, NULL, 'USDT', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2409, NULL, NULL, 'MATICUSDT', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2410, NULL, NULL, '0.00800 USDT', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2411, NULL, NULL, '0.00150', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2412, '1470074502617bac1a0b5389.56592368', NULL, '-------------------------------', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2413, '1470074502617bac1a0b5389.56592368', NULL, '1-SPOT ALGORITHM START: 29.10.2021 08:08:58', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2414, '1470074502617bac1a0b5389.56592368', NULL, '1-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...', '2021-10-29 08:08:58', '2021-10-29 08:08:58'),
-(2415, NULL, NULL, '6', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2416, NULL, NULL, 'MATIC', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2417, NULL, NULL, 'USDT', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2418, NULL, NULL, 'MATICUSDT', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2419, NULL, NULL, '0.00800 USDT', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2420, NULL, NULL, '0.00150', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2421, '1555698858617bac99e74d01.52261467', NULL, '-------------------------------', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2422, '1555698858617bac99e74d01.52261467', NULL, '1-SPOT ALGORITHM START: 29.10.2021 08:11:05', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2423, '1555698858617bac99e74d01.52261467', NULL, '1-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...', '2021-10-29 08:11:05', '2021-10-29 08:11:05'),
-(2424, NULL, NULL, 'Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak.', '2021-10-29 08:11:06', '2021-10-29 08:11:06'),
-(2425, NULL, NULL, 'Önceki satın alım limit başarıyla iptal edildi!', '2021-10-29 08:11:06', '2021-10-29 08:11:06'),
-(2426, '1555698858617bac99e74d01.52261467', NULL, '1-Komisyon: 0.001', '2021-10-29 08:11:09', '2021-10-29 08:11:09'),
-(2427, '1555698858617bac99e74d01.52261467', NULL, '1-Cüzdandaki USDT: 100', '2021-10-29 08:11:11', '2021-10-29 08:11:11'),
-(2428, '1555698858617bac99e74d01.52261467', NULL, '1-Stabiletesi kontrol ediliyor...', '2021-10-29 08:11:11', '2021-10-29 08:11:11'),
-(2429, NULL, NULL, '6', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2430, NULL, NULL, 'MATIC', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2431, NULL, NULL, 'USDT', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2432, NULL, NULL, 'MATICUSDT', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2433, NULL, NULL, '0.00800 USDT', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2434, NULL, NULL, '0.00150', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2435, '1795266911617bad088943e5.50216653', NULL, '-------------------------------', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2436, '1795266911617bad088943e5.50216653', NULL, '1-SPOT ALGORITHM START: 29.10.2021 08:12:56', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2437, '1795266911617bad088943e5.50216653', NULL, '1-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...', '2021-10-29 08:12:56', '2021-10-29 08:12:56'),
-(2438, NULL, NULL, 'Önceki ALIM Limiti iptal ediliyor yeni alım limiti koyulacak.', '2021-10-29 08:12:57', '2021-10-29 08:12:57'),
-(2439, NULL, NULL, 'Önceki satın alım limit başarıyla iptal edildi!', '2021-10-29 08:12:57', '2021-10-29 08:12:57'),
-(2440, '1795266911617bad088943e5.50216653', NULL, '1-Komisyon: 0.001', '2021-10-29 08:13:00', '2021-10-29 08:13:00'),
-(2441, '1795266911617bad088943e5.50216653', NULL, '1-Cüzdandaki USDT: 100', '2021-10-29 08:13:01', '2021-10-29 08:13:01'),
-(2442, '1795266911617bad088943e5.50216653', NULL, '1-Stabiletesi kontrol ediliyor...', '2021-10-29 08:13:01', '2021-10-29 08:13:01');
+(3509, NULL, NULL, 'Coin ID: 5', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3510, NULL, NULL, 'Alınacak Coin Adı: XRP', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3511, NULL, NULL, 'Satılacak Para Birimi: USDT', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3512, NULL, NULL, 'SPOT: XRPUSDT', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3513, NULL, NULL, 'Min kâr: 0.00800 USDT', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3514, NULL, NULL, 'Coin Sirkülasyon Aralığı: 0.00300', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3515, '6402649206248513775ce18.48516363', NULL, '-------------------------------', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3516, '6402649206248513775ce18.48516363', NULL, '1-SPOT ALGORITHM START: ', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3517, '6402649206248513775ce18.48516363', NULL, '1-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...', '2022-04-02 13:35:51', '2022-04-02 13:35:51'),
+(3518, '6402649206248513775ce18.48516363', NULL, '1-Komisyon: 0.001', '2022-04-02 13:35:52', '2022-04-02 13:35:52'),
+(3519, '6402649206248513775ce18.48516363', NULL, '1-Cüzdandaki USDT: 120', '2022-04-02 13:35:53', '2022-04-02 13:35:53'),
+(3520, '6402649206248513775ce18.48516363', NULL, '1-Stabiletesi kontrol ediliyor...', '2022-04-02 13:35:53', '2022-04-02 13:35:53'),
+(3521, '6402649206248513775ce18.48516363', NULL, '1-Stabiletesi bulunmuş Fiyat: 0.8459', '2022-04-02 13:36:37', '2022-04-02 13:36:37'),
+(3522, '6402649206248513775ce18.48516363', NULL, '1-Satın Alınacak Fiyat: 0.8459', '2022-04-02 13:36:37', '2022-04-02 13:36:37'),
+(3523, '6402649206248513775ce18.48516363', NULL, '1-Satın Alınacak Adet: 141', '2022-04-02 13:36:37', '2022-04-02 13:36:37'),
+(3524, '6402649206248513775ce18.48516363', NULL, '1-Satın Alımında Toplam Ödenecek USDT: 119.2719', '2022-04-02 13:36:37', '2022-04-02 13:36:37'),
+(3525, '6402649206248513775ce18.48516363', NULL, '1-Satın Alma Limiti Koyma = Başlatıldı!', '2022-04-02 13:36:37', '2022-04-02 13:36:37'),
+(3526, '6402649206248513775ce18.48516363', 95, '1-Satın Alma Limiti = Başarıyla Koyuldu!', '2022-04-02 13:36:37', '2022-04-02 13:36:37'),
+(3527, '6402649206248513775ce18.48516363', 95, '1-Satın Alma Limitinin gerçekleşmesi bekleniyor...', '2022-04-02 13:36:37', '2022-04-02 13:36:37'),
+(3528, '6402649206248513775ce18.48516363', 95, '1-Satın Alma Limiti Başarıyla Gerçekleşti!', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3529, '6402649206248513775ce18.48516363', 95, '1-Satın Alma komisyon düşümü için alınan adette düşülecek Adet: 0.141', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3530, '6402649206248513775ce18.48516363', 95, '1-Adet başına kesilen komisyon USDT: 0.0008459', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3531, '6402649206248513775ce18.48516363', NULL, '1-Satın aldıktan sonra komisyon adetten düşmüş ve satış için kalan adet: 140', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3532, '6402649206248513775ce18.48516363', NULL, '1-Her alım adeti için ödenen komisyon: USDT 0.0008459', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3533, '6402649206248513775ce18.48516363', NULL, '1-Her satım adeti için ödenen komisyon: USDT 0.0008539', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3534, '6402649206248513775ce18.48516363', NULL, '1-Her alım+satım adeti için toplam ödenen komisyon: USDT 0.0016998', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3535, '6402649206248513775ce18.48516363', NULL, '1-Satılacak Fiyat: 0.8556', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3536, '6402649206248513775ce18.48516363', NULL, '1-Satılacak Adet: 140', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3537, '6402649206248513775ce18.48516363', NULL, '1-Satış Limiti Koyma = Başlatıldı!', '2022-04-02 13:36:38', '2022-04-02 13:36:38'),
+(3538, '6402649206248513775ce18.48516363', NULL, '1-Satış Limiti Koyma = Başarıyla Koyuldu!', '2022-04-02 13:36:39', '2022-04-02 13:36:39'),
+(3539, '6402649206248513775ce18.48516363', NULL, '1-Alımda ödenen USDT: 119.2719', '2022-04-02 13:36:39', '2022-04-02 13:36:39'),
+(3540, '6402649206248513775ce18.48516363', NULL, '1-Alımda Ödenen Toplam Komisyon USDT: 0.1192719', '2022-04-02 13:36:39', '2022-04-02 13:36:39'),
+(3541, '6402649206248513775ce18.48516363', NULL, '1-Satımda Ödenecek USDT: 119.784', '2022-04-02 13:36:39', '2022-04-02 13:36:39'),
+(3542, '6402649206248513775ce18.48516363', NULL, '1-Satımda Ödenecek Toplam Komisyon USDT: 0.119546', '2022-04-02 13:36:39', '2022-04-02 13:36:39'),
+(3543, '6402649206248513775ce18.48516363', 96, '1-Satış işleminin gerçekleşmesi bekleniyor...', '2022-04-02 13:36:39', '2022-04-02 13:36:39'),
+(3544, '6402649206248513775ce18.48516363', NULL, '1-Toplam Kâr: 0.2732821', '2022-04-02 13:36:39', '2022-04-02 13:36:39');
 
 --
 -- Dökümü yapılmış tablolar için indeksler
@@ -199,25 +197,25 @@ ALTER TABLE `order_logs`
 -- Tablo için AUTO_INCREMENT değeri `coins`
 --
 ALTER TABLE `coins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `logs`
 --
 ALTER TABLE `logs`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=831;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=836;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
+  MODIFY `id` bigint(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=97;
 
 --
 -- Tablo için AUTO_INCREMENT değeri `order_logs`
 --
 ALTER TABLE `order_logs`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2443;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3545;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
