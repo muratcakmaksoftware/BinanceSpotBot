@@ -75,6 +75,20 @@ class Mint extends Command
     protected $coinPurchase = null;
 
     /**
+     * Coin'nin alım-satım da adet miktarının noktadan sonra kaç adetse bilgisi gelir.
+     * Örneğin: MATIC satım adeti olarak 33.234 noktadan sonra 3 tane rakamı vardır. Bu değişkeninin değeri 3 dür.
+     * Eğer ondalıklı bir değer yoksa değişkenin değeri 1 olmalıdır.
+     * @var int
+     */
+    protected $spotDigit = null;
+
+    /**
+     * SpotDigit'deki adete göre üstü alınır ve Örneğin sonu 2 rakamlı olan bir coinin 10^2 hesaplanı 10*10 = 100 dür.
+     * @var int
+     */
+    protected $spotDigitRatio = null;
+
+    /**
      * Maksimum cüzdandan çekilecek para miktarı. // Örnek: $100
      * @var int
      */
@@ -155,6 +169,9 @@ class Mint extends Command
             $this->spot = $this->coinName . $this->currency; //MATICTRY
             $this->coinProfit = $coin->profit; // Satışta alacağımız kazanç miktarı
             $this->coinPurchase = $coin->purchase; // satın alma aralık coin para birimi artı ve eksi aralığını belirler.
+            $this->spotDigit = $coin->spot_digit; // coinin alım-satımdaki noktadan sonraki adet sayısını belirler.
+            $this->spotDigitRatio = $this->spotDigit == 0 ? 1 : pow(10, $this->spotDigit); //spot_digit bağlı hesaplama içindir.
+
             $this->orderLog(ConsoleMessageType::INFO, "Coin ID: " . $this->coinId, null, null, false);
 
             $this->orderLog(ConsoleMessageType::INFO, "Alınacak Coin Adı: " . $this->coinName, null, null, false);
@@ -177,7 +194,7 @@ class Mint extends Command
                 $this->orderLog(ConsoleMessageType::INFO, $whileCounter . "-Önceden Yapılmış Siparişin Bitmesi Bekleniyor...", $this->uniqueId, null,false);
 
                 //Beklemede olan açık emir yoksa algoritmaya giriş yapabilir!
-                $this->waitOpenOrders();
+                $this->waitOpenOrders($this->spot);
 
                 $fee = $this->getCommission($this->spot);
 
@@ -206,7 +223,7 @@ class Mint extends Command
 
                 $this->orderLog(ConsoleMessageType::INFO, $whileCounter . "-Stabiletesi bulunmuş Fiyat: " . $buyPrice, $this->uniqueId, null, false);
 
-                $coinDigit = pow(10, $this->getCoinPriceDigit($buyPrice)); //Coinin küsürat sayısının öğrenilmesi ve üstü alınarak sellPrice da düzeltme yapılması.
+                $coinSellDigit = pow(10, $this->getCoinPriceDigit($buyPrice)); //Coinin küsürat sayısının öğrenilmesi ve üstü alınarak sellPrice da düzeltme yapılması.
 
                 // ################## [KOMİSYON VE ALINACAK ADETIN BELİRLENMESİ BAŞLANGIÇ] ##################
 
@@ -252,7 +269,14 @@ class Mint extends Command
                 $buyCommissionPrice = (($buyPrice * $buyPieceCommission) / $buyPiece);
                 $this->orderLog(ConsoleMessageType::INFO, $whileCounter . "-Adet başına kesilen komisyon " . $this->currency . ": " . $buyCommissionPrice, $this->uniqueId, $buyOrder->id, false);
                 $sellPiece = $buyPiece - $buyPieceCommission; //satış için KALAN ADET
-                $sellPiece = floor($sellPiece * 10) / 10; // satış için basamak düzeltme. ör: 10.989 => 10.9
+
+                /*
+                 * Satın alımda adet düştüğü için örnek 50 adet satın alım yaptık ve 49.634 adet kaldı.
+                 * 49.634 * 10 = 496.34 bunu floor ile aşağıya düzlüyoruz.
+                 * 496 / 10 = 49.6
+                 * 10 = noktandan sonra 1 basamak, 100 noktadan sonra 2 basamak gibi.
+                 */
+                $sellPiece = floor($sellPiece * $this->spotDigitRatio) / $this->spotDigitRatio; // satış için basamak düzeltme. ör: 10.989 => 10.9
                 $this->orderLog(ConsoleMessageType::INFO,$whileCounter . "-Satın aldıktan sonra komisyon adetten düşmüş ve satış için kalan adet: " . $sellPiece, $this->uniqueId, null, false);
 
                 //SATIŞ İÇİN MİKTARIN BELİRLENMESİ
@@ -275,7 +299,7 @@ class Mint extends Command
 
                 //###### SATIŞ LİMİT FİYATININ BELİRLENMESİ ######
                 $sellPrice = $sellPrice + $totalCommission; //Toplam tek coin için ödenen komisyonla satış rakamını toplayıp karlı satış fiyatını buluruz.
-                $sellPrice = ceil($sellPrice * $coinDigit) / $coinDigit; //kusurat duzeltme örn: 1.2359069 => 1.23591
+                $sellPrice = ceil($sellPrice * $coinSellDigit) / $coinSellDigit; //kusurat duzeltme örn: 1.2359069 => 1.23591
 
                 // ############# [SATIŞ BİLGİLERİNİN HESAPLANMA İŞLEMLERİ BİTİŞ] #############
 

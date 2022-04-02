@@ -346,13 +346,13 @@ trait BinanceTrait
      * @param $spot
      * @return bool
      */
-    function waitOpenOrders(): bool
+    function waitOpenOrders($spot): bool
     {
-        while (true) {
-            if($this->testMode){
-                return true;
-            }
+        if($this->testMode){
+            return true;
+        }
 
+        while (true) {
             try {
                 /*
                  array:1 [
@@ -379,7 +379,7 @@ trait BinanceTrait
                     ]
                  * */
 
-                $openOrders = $this->api->openOrders($this->spot); //SPOT adına göre açık emir bilgilerini getirir. Sadece o spota ait olan emirler gelecektir.
+                $openOrders = $this->api->openOrders($spot); //SPOT adına göre açık emir bilgilerini getirir. Sadece o spota ait olan emirler gelecektir.
 
                 //dd($openOrders);
                 if (count($openOrders) > 0) { //Daha önceden bir limit emri verilmiş gerçekleşmesi için beklenecek.
