@@ -66,3 +66,6 @@ Yukarıdan satın alım yapılırsa bulunduğu miktardan satın alır buna dikka
 Her zaman satın alım bulunduğu limitin altından alınmalıdır.
 Her zaman satış için bulunduğu limitin üstünden yapılmalıdır.
 ````
+
+### Örnek Çıktı
+![ecommerce db design!](public/images/spot.jpg "binance spot")
